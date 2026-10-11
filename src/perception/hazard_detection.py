@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from src.perception.segmentation import Component, scale_of
-from src.perception.target_detection import MIN_CONTRAST, Detection
+from src.perception.target_detection import MAX_PERSON_AREA, MIN_CONTRAST, Detection
 
 
 def detect_hazards(
@@ -62,9 +62,9 @@ def _classify(
     ]
     blue, green, red = cv2.mean(patch)[:3]
     warm = red > 140 and red > green + 15 and red > blue + 30
-    if warm and region.area <= (8000 * area_scale):
+    if warm and region.area <= (MAX_PERSON_AREA * area_scale):
         return ("debris", "DEBRIS", confidence)
-    if (8000 * area_scale) < region.area <= (90000 * area_scale):
+    if (MAX_PERSON_AREA * area_scale) < region.area <= (90000 * area_scale):
         return ("hazard", "HAZARD", confidence)
     return None
 

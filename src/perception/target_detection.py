@@ -5,10 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+import cv2
+import numpy as np
+from numpy.typing import NDArray
+
 from src.perception.segmentation import Component, scale_of
 
 Classification = Literal["survivor", "hazard", "debris"]
-MIN_CONTRAST = 24.0
+MIN_CONTRAST = 31.0
+MIN_PERSON_AREA = 800
+MAX_PERSON_AREA = 4500
+MIN_BOX_BRIGHTNESS = 100.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,8 +31,13 @@ class Detection:
         return (x + w / 2, y + h / 2)
 
 
-def detect_targets(regions: list[Component], width: int, height: int) -> list[Detection]:
+def detect_targets(
+    regions: list[Component],
+    frame: NDArray[np.uint8],
+) -> list[Detection]:
     """Keep person-sized blobs and join nearby body parts into one box."""
+    height, width = frame.shape[:2]
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     scale = scale_of(width)
     people = [region for region in regions if _person_shaped(region, scale)]
     merged = _merge_nearby(people, max_gap=40 * scale)
@@ -38,6 +50,8 @@ def detect_targets(regions: list[Component], width: int, height: int) -> list[De
         y = max(0, region.y - pad)
         w = min(width - x, region.w + 2 * pad)
         h = min(height - y, region.h + 2 * pad)
+        if float(gray[y : y + h, x : x + w].mean()) < MIN_BOX_BRIGHTNESS:
+            continue
         confidence = min(0.92, max(0.45, region.contrast / 60))
         detections.append(
             Detection(
@@ -55,7 +69,7 @@ def _person_shaped(region: Component, scale: float) -> bool:
     area_scale = scale * scale
     if region.contrast < MIN_CONTRAST:
         return False
-    if not (250 * area_scale) <= region.area <= (8000 * area_scale):
+    if not (MIN_PERSON_AREA * area_scale) <= region.area <= (MAX_PERSON_AREA * area_scale):
         return False
     short = min(region.w, region.h)
     long = max(region.w, region.h)
