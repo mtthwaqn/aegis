@@ -36,8 +36,7 @@ def analyze(frame: NDArray[np.uint8]) -> PerceptionResult:
     hazards = detect_hazards(processed, regions, [])
     people = detect_targets(
         [region for region in regions if not overlaps(region, hazards)],
-        width,
-        height,
+        processed,
     )
     detections = people + hazards
     elapsed = (time.perf_counter() - started) * 1000
