@@ -52,7 +52,7 @@ def analyze(frame: NDArray[np.uint8]) -> PerceptionResult:
 
 
 def to_vision_state(result: PerceptionResult, frame_id: int, timestamp: datetime) -> VisionState:
-    """Pack detections into Member 1's contract. Geographic fields stay empty."""
+    """Pack detections into the shared vision contract. Geographic fields stay empty."""
     boxes = [
         BoundingBox(
             coordinates=list(detection.coordinates),
