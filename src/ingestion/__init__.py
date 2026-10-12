@@ -1,0 +1,1 @@
+"""Video acquisition and simulation."""
