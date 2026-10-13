@@ -1,0 +1,26 @@
+{
+  "frame_id": 188,
+  "timestamp": "2026-10-11T13:09:08Z",
+  "latency_ms": 22.0279170316644,
+  "bounding_boxes": [
+    {
+      "coordinates": [
+        0.0,
+        211.0,
+        53.0,
+        93.0
+      ],
+      "centroid": [
+        26.5,
+        257.5
+      ],
+      "confidence": 0.6473113597770714,
+      "classification": "hazard",
+      "geo_coordinates": null
+    }
+  ],
+  "is_occluded": false,
+  "frame_width": 1280,
+  "frame_height": 675,
+  "drone_coordinates": null
+}
