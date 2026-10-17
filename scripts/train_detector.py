@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--model", default="yolo11n.pt")
     parser.add_argument("--name", default="person-boat")
+    parser.add_argument("--close-mosaic", type=int, default=10)
     args = parser.parse_args()
     if not DATASET.exists():
         raise SystemExit("Missing dataset. Run scripts/build_detection_set.py first.")
@@ -39,6 +40,7 @@ def main() -> None:
         name=args.name,
         exist_ok=True,
         workers=2,
+        close_mosaic=args.close_mosaic,
     )
 
 
