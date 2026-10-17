@@ -24,6 +24,7 @@ def evaluate_spatial_state(
     vision: VisionState,
     low_confidence_threshold: float = 0.65,
 ) -> SpatialState:
+    assess_confidence(1.0, threshold=low_confidence_threshold)
     assessments = [
         assess_confidence(
             box.confidence,
