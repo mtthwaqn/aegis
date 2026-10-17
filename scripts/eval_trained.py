@@ -30,11 +30,11 @@ WEIGHTS = Path("runs/detect/data/training/runs/person-boat/weights/best.pt")
 LABEL_OF = {"person": "survivor", "boat": "hazard"}
 
 
-def score(prefix: str, stride: int, confidence: float) -> None:
+def score(prefix: str, stride: int, confidence: float, weights: Path) -> None:
     from ultralytics import YOLO
 
     samples = load_samples(prefix, stride)
-    model = YOLO(str(WEIGHTS))
+    model = YOLO(str(weights))
     totals: dict[str, dict[float, dict[str, int]]] = {
         name: {
             threshold: {"tp": 0, "fp": 0, "fn": 0, "large_tp": 0, "large_fn": 0}
@@ -112,10 +112,11 @@ def main() -> None:
     parser.add_argument("--prefix", default="DJI_0804")
     parser.add_argument("--stride", type=int, default=30)
     parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--weights", type=Path, default=WEIGHTS)
     args = parser.parse_args()
-    if not WEIGHTS.exists():
-        raise SystemExit(f"Missing weights at {WEIGHTS}")
-    score(args.prefix, args.stride, args.conf)
+    if not args.weights.exists():
+        raise SystemExit(f"Missing weights at {args.weights}")
+    score(args.prefix, args.stride, args.conf, args.weights)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Train a person/boat detector on the exported MOBDrone set.
+"""Train a person/boat detector on the exported detection set.
 
 Install the training extra before running: pip install ultralytics.
 Weights are written under data/training and are not committed.
@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--model", default="yolo11n.pt")
+    parser.add_argument("--name", default="person-boat")
     args = parser.parse_args()
     if not DATASET.exists():
         raise SystemExit("Missing dataset. Run scripts/build_detection_set.py first.")
@@ -35,7 +36,7 @@ def main() -> None:
         batch=args.batch,
         device="mps",
         project=str(RUNS.resolve()),
-        name="person-boat",
+        name=args.name,
         exist_ok=True,
         workers=2,
     )
