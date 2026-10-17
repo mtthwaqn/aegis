@@ -4,7 +4,6 @@ from typing import Any
 
 from src.server.schemas import BoundingBox, Coordinates, VisionState
 
-from .confidence import ConfidenceStatus, assess_confidence
 from .spatial_state import SpatialState, evaluate_spatial_state
 
 
@@ -26,21 +25,20 @@ def to_reasoning_payload(
     ]
     hazard_detection = max(hazards, key=_confidence, default=(0, None))[1]
     selected_detection = _location_detection(state, survivors, hazards)
-    confidence_score = max((box.confidence for box in vision.bounding_boxes), default=None)
-    if confidence_score is None:
+    confidence_score = min((box.confidence for box in vision.bounding_boxes), default=None)
+    if state is SpatialState.LOW_CONFIDENCE:
+        confidence_status = "LOW_CONFIDENCE"
+    elif confidence_score is None:
         confidence_status = "NO_DETECTION"
     else:
-        confidence_status = assess_confidence(
-            confidence_score,
-            threshold=low_confidence_threshold,
-            is_occluded=vision.is_occluded,
-        ).status.value
+        confidence_status = "HIGH_CONFIDENCE"
 
     return {
         "frame_id": vision.frame_id,
         "timestamp": vision.timestamp.isoformat(),
         "frame_width": vision.frame_width,
         "frame_height": vision.frame_height,
+        "latency_ms": vision.latency_ms,
         "state": state.value,
         "target": target,
         "hazard": {
@@ -68,6 +66,7 @@ def _detection_payload(
         return None
     return {
         "id": f"F{frame_id}-B{index}",
+        "id_scope": "frame",
         "type": "person" if box.classification == "survivor" else box.classification,
         "classification": box.classification,
         "confidence": box.confidence,
