@@ -1,0 +1,67 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreatePlannedStream",
+      "Effect": "Allow",
+      "Action": [
+        "kinesisvideo:CreateStream",
+        "kinesisvideo:DeleteStream",
+        "kinesisvideo:DescribeStream",
+        "kinesisvideo:GetDataEndpoint",
+        "kinesisvideo:GetHLSStreamingSessionURL",
+        "kinesisvideo:ListTagsForStream",
+        "kinesisvideo:PutMedia",
+        "kinesisvideo:TagStream",
+        "kinesisvideo:UntagStream",
+        "kinesisvideo:UpdateDataRetention",
+        "kinesisvideo:UpdateStream"
+      ],
+      "Resource": "arn:aws:kinesisvideo:ap-southeast-2:*:stream/aegis-rescue/*"
+    },
+    {
+      "Sid": "ListStreamsInRegion",
+      "Effect": "Allow",
+      "Action": ["kinesisvideo:ListStreams"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageAegisKinesisPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:TagPolicy"
+      ],
+      "Resource": "arn:aws:iam::*:policy/aegis-kinesis-*"
+    },
+    {
+      "Sid": "ManageKinesisPlanStack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateChangeSet",
+        "cloudformation:CreateStack",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:DescribeStacks",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:GetTemplate",
+        "cloudformation:ListChangeSets",
+        "cloudformation:ListStackResources",
+        "cloudformation:UpdateStack"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:ap-southeast-2:*:stack/aegis-kinesis/*",
+        "arn:aws:cloudformation:ap-southeast-2:*:stack/aegis-kinesis"
+      ]
+    }
+  ]
+}

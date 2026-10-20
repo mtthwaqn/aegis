@@ -96,7 +96,7 @@ the process environment.
 | `AEGIS_COMPUTE_INSTANCE` | `AWS Graviton3 c7g.xlarge + COOL` | Declared compute target |
 | `AEGIS_DEPLOYMENT_VERIFIED` | `false` | Set after actual deployment verification |
 | `AEGIS_HOURLY_COMPUTE_COST_USD` | unset | Verified hourly compute cost for estimates |
-| `AEGIS_KINESIS_REGION` | `ap-southeast-1` | AWS region |
+| `AEGIS_KINESIS_REGION` | `ap-southeast-2` | AWS region |
 | `AEGIS_KINESIS_DATA_ENDPOINT` | unset | Optional data API endpoint, not a playlist URL |
 | `AEGIS_KINESIS_SESSION_SECONDS` | `3600` | Signed HLS session lifetime, renewed before expiry |
 | `AEGIS_DASHBOARD_BACKEND_URL` | `http://localhost:8000` | Browser-reachable Streamlit iframe backend |
@@ -118,14 +118,17 @@ A missing local path fails startup. An unreadable source retries.
 Kinesis uses boto3's credential chain / IAM role:
 
 ```bash
-AEGIS_VIDEO_SOURCE=kinesis://rescue-drone AEGIS_KINESIS_REGION=ap-southeast-1 \
+AEGIS_VIDEO_SOURCE=kinesis://rescue-drone AEGIS_KINESIS_REGION=ap-southeast-2 \
   uvicorn src.server.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-Required stream-scoped IAM actions: `kinesisvideo:GetDataEndpoint`,
-`kinesisvideo:GetHLSStreamingSessionURL`, `kinesisvideo:GetHLSMasterPlaylist`,
-`kinesisvideo:GetHLSMediaPlaylist`, and `kinesisvideo:GetMP4MediaFragment`.
-A configured data endpoint skips discovery. Signed HLS URLs never enter telemetry.
+The reader IAM policy allows `kinesisvideo:DescribeStream`,
+`kinesisvideo:GetDataEndpoint`, and `kinesisvideo:GetHLSStreamingSessionURL`
+on `aegis-rescue`. Playlist and fragment reads use that signed HLS URL; they are
+not separate IAM actions. Account setup, the producer policy, and the stream
+plan live in [`infra/aws/README.md`](infra/aws/README.md). That plan does not
+deploy the app or record a benchmark. A configured data endpoint skips discovery.
+Signed HLS URLs never enter telemetry.
 The stream requires retained fragments and compatible HLS video codecs. HLS adds
 fragment latency; the bus rate does not guarantee low-latency Kinesis acquisition.
 See the [AWS HLS API requirements](https://docs.aws.amazon.com/kinesisvideostreams/latest/APIReference/API_reader_GetHLSStreamingSessionURL.html).

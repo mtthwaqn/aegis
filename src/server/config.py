@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     vision_wait_ms: Annotated[float, Field(ge=0, le=2000)] = 150.0
     source_stale_seconds: Annotated[float, Field(gt=0)] = 5.0
     read_timeout_ms: Annotated[int, Field(ge=100, le=10000)] = 3000
-    kinesis_region: str = "ap-southeast-1"
+    kinesis_region: str = "ap-southeast-2"
     kinesis_data_endpoint: str | None = None
     kinesis_session_seconds: Annotated[int, Field(ge=300, le=43200)] = 3600
 
