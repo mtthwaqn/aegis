@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Aegis Kinesis plan: one Video Stream plus reader and producer IAM policies.
+  Does not deploy the application, create compute, or run a benchmark.
+
+Rules:
+  RegionIsSydney:
+    Assertions:
+      - Assert:
+          Fn::Equals:
+            - Ref: AWS::Region
+            - ap-southeast-2
+        AssertDescription: Create this stack only in ap-southeast-2, matching AEGIS_KINESIS_REGION.
+
+Parameters:
+  StreamName:
+    Type: String
+    Default: aegis-rescue
+    AllowedPattern: "^[a-zA-Z0-9_.-]{1,256}$"
+    Description: Consumed later as AEGIS_VIDEO_SOURCE=kinesis://<name>. Default aegis-rescue.
+  DataRetentionHours:
+    Type: Number
+    Default: 24
+    MinValue: 1
+    MaxValue: 168
+    Description: HLS playback needs at least 1 hour of retained fragments.
+
+Resources:
+  RescueStream:
+    Type: AWS::KinesisVideo::Stream
+    Properties:
+      Name: !Ref StreamName
+      DataRetentionInHours: !Ref DataRetentionHours
+      MediaType: video/h264
+      Tags:
+        - Key: Project
+          Value: aegis
+        - Key: Scope
+          Value: kinesis-plan
+
+  ReaderPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "aegis-kinesis-reader-${StreamName}"
+      Description: Read live HLS from the Aegis rescue stream.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ReadLiveHls
+            Effect: Allow
+            Action:
+              - kinesisvideo:DescribeStream
+              - kinesisvideo:GetDataEndpoint
+              - kinesisvideo:GetHLSStreamingSessionURL
+            Resource: !GetAtt RescueStream.Arn
+
+  ProducerPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "aegis-kinesis-producer-${StreamName}"
+      Description: Publish H.264 video into the Aegis rescue stream.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublishVideo
+            Effect: Allow
+            Action:
+              - kinesisvideo:DescribeStream
+              - kinesisvideo:GetDataEndpoint
+              - kinesisvideo:PutMedia
+            Resource: !GetAtt RescueStream.Arn
+
+Outputs:
+  StreamName:
+    Value: !Ref RescueStream
+  StreamArn:
+    Value: !GetAtt RescueStream.Arn
+  ReaderPolicyArn:
+    Value: !Ref ReaderPolicy
+  ProducerPolicyArn:
+    Value: !Ref ProducerPolicy
+  VideoSource:
+    Value: !Sub "kinesis://${StreamName}"

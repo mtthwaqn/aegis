@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadLiveHls",
+      "Effect": "Allow",
+      "Action": [
+        "kinesisvideo:DescribeStream",
+        "kinesisvideo:GetDataEndpoint",
+        "kinesisvideo:GetHLSStreamingSessionURL"
+      ],
+      "Resource": "arn:aws:kinesisvideo:ap-southeast-2:*:stream/aegis-rescue/*"
+    }
+  ]
+}
