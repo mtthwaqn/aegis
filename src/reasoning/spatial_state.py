@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
@@ -10,7 +10,7 @@ from src.server.schemas import Coordinates, VisionState
 from .confidence import ConfidenceStatus, assess_confidence
 
 
-class SpatialState(str, Enum):
+class SpatialState(StrEnum):
     TARGET_VERIFIED = "TARGET_VERIFIED"
     HAZARD_DETECTED = "HAZARD_DETECTED"
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
@@ -37,10 +37,7 @@ def evaluate_spatial_state(
         assessment.status is ConfidenceStatus.LOW_CONFIDENCE for assessment in assessments
     ):
         return SpatialState.LOW_CONFIDENCE
-    if any(
-        box.classification in {"hazard", "debris"}
-        for box in vision.bounding_boxes
-    ):
+    if any(box.classification in {"hazard", "debris"} for box in vision.bounding_boxes):
         return SpatialState.HAZARD_DETECTED
     if any(box.classification == "survivor" for box in vision.bounding_boxes):
         return SpatialState.TARGET_VERIFIED

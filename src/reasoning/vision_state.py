@@ -15,14 +15,12 @@ def to_reasoning_payload(
     indexed_boxes = list(enumerate(vision.bounding_boxes, start=1))
     survivors = [(index, box) for index, box in indexed_boxes if box.classification == "survivor"]
     hazards = [
-        (index, box)
-        for index, box in indexed_boxes
-        if box.classification in {"hazard", "debris"}
+        (index, box) for index, box in indexed_boxes if box.classification in {"hazard", "debris"}
     ]
-    target = _detection_payload(vision.frame_id, *max(survivors, key=_confidence, default=(0, None)))
-    hazard_detections = [
-        _detection_payload(vision.frame_id, index, box) for index, box in hazards
-    ]
+    target = _detection_payload(
+        vision.frame_id, *max(survivors, key=_confidence, default=(0, None))
+    )
+    hazard_detections = [_detection_payload(vision.frame_id, index, box) for index, box in hazards]
     hazard_detection = max(hazards, key=_confidence, default=(0, None))[1]
     selected_detection = _location_detection(state, survivors, hazards)
     confidence_score = min((box.confidence for box in vision.bounding_boxes), default=None)

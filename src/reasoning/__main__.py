@@ -11,7 +11,9 @@ from .vision_state import to_reasoning_payload
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Process Member 2 VisionState with Member 3 reasoning")
+    parser = argparse.ArgumentParser(
+        description="Process Member 2 VisionState with Member 3 reasoning"
+    )
     parser.add_argument("vision", type=Path)
     parser.add_argument("--threshold", type=float, default=0.65)
     parser.add_argument("--annotations", type=Path)
@@ -20,7 +22,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     if (args.annotations is None) != (args.image_id is None):
-        parser.error("--annotations and --image-id must be supplied together for the same source image")
+        parser.error(
+            "--annotations and --image-id must be supplied together for the same source image"
+        )
     if args.horizontal_fov_degrees is not None and args.annotations is None:
         parser.error("--horizontal-fov-degrees requires --annotations and --image-id")
     try:

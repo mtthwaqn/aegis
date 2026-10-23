@@ -35,6 +35,8 @@ async def inspect(base_url: str, duration: float) -> None:
                 if envelope.vision is not None:
                     if envelope.vision.frame_id != envelope.frame.frame_id:
                         raise RuntimeError("Frame / vision correlation violated")
+                    if envelope.reasoning is None:
+                        raise RuntimeError("Vision frame is missing its reasoning state")
         if len(received) < 2 or not frame_ids:
             raise RuntimeError("Insufficient live frames")
         measured_hz = (len(received) - 1) / (received[-1] - received[0])

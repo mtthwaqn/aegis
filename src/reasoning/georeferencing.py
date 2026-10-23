@@ -37,9 +37,7 @@ class CameraIntrinsics:
             raise ValueError("Principal point must lie inside the image")
 
     @classmethod
-    def from_horizontal_fov(
-        cls, width: int, height: int, degrees: float
-    ) -> CameraIntrinsics:
+    def from_horizontal_fov(cls, width: int, height: int, degrees: float) -> CameraIntrinsics:
         for name, value in (("width", width), ("height", height)):
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
@@ -62,8 +60,10 @@ class CameraPose:
         if not isinstance(self.coordinates, Coordinates):
             raise ValueError("coordinates must use the shared Coordinates contract")
         for name in (
-            "height_above_water_m", "heading_clockwise_from_north_deg",
-            "pitch_down_from_horizon_deg", "roll_clockwise_deg",
+            "height_above_water_m",
+            "heading_clockwise_from_north_deg",
+            "pitch_down_from_horizon_deg",
+            "roll_clockwise_deg",
         ):
             finite_number(getattr(self, name), name)
         if self.height_above_water_m <= 0:
@@ -89,16 +89,12 @@ def project_pixel_to_water(
     pitch = math.radians(pose.pitch_down_from_horizon_deg)
     roll = math.radians(pose.roll_clockwise_deg)
     right = (math.cos(yaw), -math.sin(yaw), 0.0)
-    down = (-math.sin(yaw) * math.sin(pitch),
-            -math.cos(yaw) * math.sin(pitch), -math.cos(pitch))
-    forward = (math.sin(yaw) * math.cos(pitch),
-               math.cos(yaw) * math.cos(pitch), -math.sin(pitch))
+    down = (-math.sin(yaw) * math.sin(pitch), -math.cos(yaw) * math.sin(pitch), -math.cos(pitch))
+    forward = (math.sin(yaw) * math.cos(pitch), math.cos(yaw) * math.cos(pitch), -math.sin(pitch))
     px, py = (x - camera.cx) / camera.fx, (y - camera.cy) / camera.fy
     rx = px * math.cos(roll) - py * math.sin(roll)
     ry = px * math.sin(roll) + py * math.cos(roll)
-    east, north, up = (
-        forward[i] + rx * right[i] + ry * down[i] for i in range(3)
-    )
+    east, north, up = (forward[i] + rx * right[i] + ry * down[i] for i in range(3))
     if up >= -1e-8:
         return None
     distance_factor = -pose.height_above_water_m / up
@@ -116,14 +112,18 @@ def _offset_coordinates(origin: Coordinates, east: float, north: float) -> Coord
     angle = distance / 6371008.8
     bearing = math.atan2(east, north)
     lat, lon = math.radians(origin.lat), math.radians(origin.lon)
-    new_lat = math.asin(max(-1.0, min(1.0,
-        math.sin(lat) * math.cos(angle)
-        + math.cos(lat) * math.sin(angle) * math.cos(bearing)
-    )))
+    new_lat = math.asin(
+        max(
+            -1.0,
+            min(
+                1.0,
+                math.sin(lat) * math.cos(angle)
+                + math.cos(lat) * math.sin(angle) * math.cos(bearing),
+            ),
+        )
+    )
     new_lon = lon + math.atan2(
         math.sin(bearing) * math.sin(angle) * math.cos(lat),
         math.cos(angle) - math.sin(lat) * math.sin(new_lat),
     )
-    return Coordinates(
-        lat=math.degrees(new_lat), lon=(math.degrees(new_lon) + 180) % 360 - 180
-    )
+    return Coordinates(lat=math.degrees(new_lat), lon=(math.degrees(new_lon) + 180) % 360 - 180)

@@ -64,6 +64,49 @@ class VisionState(Contract):
         return self
 
 
+class ReasoningDetection(Contract):
+    """A frame-scoped detection selected by Member 3's reasoning adapter."""
+
+    id: str
+    id_scope: Literal["frame"]
+    type: Literal["person", "hazard", "debris"]
+    classification: Literal["survivor", "hazard", "debris"]
+    confidence: Confidence
+    bounding_box: Annotated[list[NonNegative], Field(min_length=4, max_length=4)]
+    centroid: Annotated[list[NonNegative], Field(min_length=2, max_length=2)]
+    geo_coordinates: Coordinates | None
+
+
+class ReasoningConfidence(Contract):
+    score: Confidence | None
+    status: Literal["HIGH_CONFIDENCE", "LOW_CONFIDENCE", "NO_DETECTION"]
+
+
+class ReasoningHazard(Contract):
+    detected: bool
+    type: Literal["hazard", "debris"] | None
+    confidence: Confidence | None
+    detections: Annotated[list[ReasoningDetection], Field(max_length=500)]
+
+
+class ReasoningState(Contract):
+    """Typed output of to_reasoning_payload; raw VisionState stays unchanged."""
+
+    frame_id: Annotated[int, Field(ge=0)]
+    timestamp: AwareDatetime = Field(strict=False)
+    frame_width: Annotated[int, Field(ge=1, le=16384)]
+    frame_height: Annotated[int, Field(ge=1, le=16384)]
+    latency_ms: NonNegative
+    state: Literal["TARGET_VERIFIED", "HAZARD_DETECTED", "LOW_CONFIDENCE", "NO_TARGET"]
+    target: ReasoningDetection | None
+    hazard: ReasoningHazard
+    location: Coordinates | None
+    drone_coordinates: Coordinates | None
+    confidence: ReasoningConfidence
+    is_occluded: bool
+    bounding_boxes: Annotated[list[BoundingBox], Field(max_length=500)]
+
+
 class AgentActionPayload(Contract):
     action_id: Annotated[str, Field(min_length=1, max_length=128)] = Field(
         default_factory=lambda: str(uuid4())
@@ -139,4 +182,16 @@ class LiveEnvelope(Contract):
     sequence: int
     frame: VideoFramePayload | None
     vision: VisionState | None
+    reasoning: ReasoningState | None = None
     telemetry: SystemTelemetry
+
+    @model_validator(mode="after")
+    def correlated_reasoning(self) -> Self:
+        if self.reasoning is not None:
+            if (
+                self.frame is None
+                or self.vision is None
+                or not (self.frame.frame_id == self.vision.frame_id == self.reasoning.frame_id)
+            ):
+                raise ValueError("Reasoning requires the matching video frame and VisionState")
+        return self
