@@ -8,7 +8,10 @@ from typing import Any
 from src.server.schemas import Coordinates, VisionState
 
 from .georeferencing import (
-    CameraIntrinsics, CameraPose, finite_number, project_pixel_to_water,
+    CameraIntrinsics,
+    CameraPose,
+    finite_number,
+    project_pixel_to_water,
 )
 
 
@@ -17,7 +20,9 @@ def load_image_record(path: str | Path, image_id: int) -> dict[str, Any]:
     records = document.get("images") if isinstance(document, dict) else None
     if not isinstance(records, list):
         raise ValueError("Expected a COCO JSON object containing an images array")
-    matches = [record for record in records if isinstance(record, dict) and record.get("id") == image_id]
+    matches = [
+        record for record in records if isinstance(record, dict) and record.get("id") == image_id
+    ]
     if len(matches) != 1:
         raise ValueError(f"Expected exactly one image record for image_id={image_id}")
     return matches[0]
@@ -65,9 +70,7 @@ def enrich_from_seadronessee(
         return VisionState.model_validate(payload), report
     width, height = image_record.get("width"), image_record.get("height")
     camera = CameraIntrinsics.from_horizontal_fov(width, height, horizontal_fov_degrees)
-    if not math.isclose(
-        width / height, vision.frame_width / vision.frame_height, rel_tol=0.005
-    ):
+    if not math.isclose(width / height, vision.frame_width / vision.frame_height, rel_tol=0.005):
         raise ValueError("Source and detection aspect ratios differ; cropping needs a transform")
     pose = CameraPose(
         coordinates=drone,
@@ -101,13 +104,21 @@ def enrich_from_seadronessee(
         )
         payload["bounding_boxes"][index]["geo_coordinates"] = location
         successful += location is not None
-        report["boxes"].append({
-            "index": index,
-            "status": "estimated" if location is not None else "unavailable",
-            "reason": None if location is not None else "Ray misses water or exceeds range limit",
-        })
+        report["boxes"].append(
+            {
+                "index": index,
+                "status": "estimated" if location is not None else "unavailable",
+                "reason": None
+                if location is not None
+                else "Ray misses water or exceeds range limit",
+            }
+        )
     if not successful:
-        report["status"] = "provided" if any(box.geo_coordinates is not None for box in vision.bounding_boxes) else "drone_only"
+        report["status"] = (
+            "provided"
+            if any(box.geo_coordinates is not None for box in vision.bounding_boxes)
+            else "drone_only"
+        )
         report["reason"] = "No new target coordinate was projected"
     return VisionState.model_validate(payload), report
 

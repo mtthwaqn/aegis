@@ -5,6 +5,12 @@ and a responsive Dark Ops operator dashboard for maritime / flood search and res
 Members 2–5 supply perception, georeferencing, physical MCP tools, AWS deployment,
 and COOL benchmarking. No hardware commands execute in this repository.
 
+PR #3's Member 3 reasoning is now connected to the live Command Center. Each
+accepted `VisionState` passes through `to_reasoning_payload()` and a validated
+`ReasoningState`, then travels in `/ws/live` alongside its matching frame. The
+**Live Spatial State** panel displays target, confidence, hazard, location, and
+current state for the frame actually rendered in the video viewport.
+
 ## Setup and run
 
 ```bash
@@ -47,6 +53,7 @@ dashboard/app.py                  Streamlit launcher
 dashboard/command_center.html    responsive browser HUD + interactive geographic grid
 scripts/setup.sh                 reproducible installation
 scripts/export_schemas.py        standalone JSON Schema export
+scripts/post_vision.py           continuous classical-perception publisher
 tests/                           contracts, ingestion, safety, overload, API integration
 ```
 
@@ -60,6 +67,13 @@ thread; queue / state access stays on the asyncio loop. JPEG encoding runs off-l
 once per acquired frame. A bounded acquisition queue discards oldest frames under
 load. Each of at most 64 viewers has a one-snapshot queue; stale snapshots coalesce
 and stalled sends time out. Multiple workers require a shared broker / state store.
+
+Reasoning runs once per accepted vision frame and shares its bounded cache lifetime.
+`LiveEnvelope.reasoning` is null when the selected video frame has no matching
+vision. Existing vision POST bodies are unchanged; publishers send raw `VisionState`,
+not the standalone reasoning CLI's `{vision, reasoning, georeferencing}` wrapper.
+Clients that validate WebSocket messages with `extra="forbid"` must regenerate their
+`LiveEnvelope` schema to recognize the new optional `reasoning` field.
 
 ## Rubric evidence
 
@@ -107,6 +121,27 @@ Local clips loop automatically:
 AEGIS_VIDEO_SOURCE=data/mobdrone.mp4 AEGIS_MOCK_ACTIONS=false \
   uvicorn src.server.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
+
+Then run the live publisher in a second terminal from the repository root:
+
+```bash
+source .venv/bin/activate
+python scripts/post_vision.py --interval 0.1
+```
+
+The publisher reads `AEGIS_API_TOKEN` from the environment / `.env` and authenticates
+both acquisition and vision POST requests. It continuously publishes survivor,
+hazard, low-confidence, and empty-scene results until Ctrl-C; it does not stop on
+the first person. Use `--once` for one frame or `--attempts 20` for a bounded run.
+Connection / decode failures retry; authentication failures exit. A 409 indicates
+an expired or conflicting immutable frame, so the next attempt acquires a new frame.
+The built-in `mock` feed already supplies its own vision; use a local clip / RTSP
+source for this publisher to avoid conflicting with synthetic detections.
+
+The live `analyze()` path still uses Member 2's classical detector. Connecting the
+trained model and its 0.45 detection threshold remains Member 2's task. The separate
+0.65 human-review threshold is applied by Member 3 reasoning using the server's
+`AEGIS_LOW_CONFIDENCE_THRESHOLD` configuration.
 
 Frames are scaled to fit 1280×720 while preserving aspect ratio. Member 2/3 must
 use the **decoded dimensions** returned by the frame endpoint. The reader paces
@@ -160,6 +195,19 @@ await external vision; the mock feed already publishes immutable synthetic visio
 Unknown / expired IDs, differing decoded dimensions, conflicting duplicate states,
 or timestamps differing from the captured frame by over one second return 409.
 Out-of-order vision is cached without rewinding safety evaluation.
+
+The panel preserves Member 3's state precedence: `LOW_CONFIDENCE`, then
+`HAZARD_DETECTED`, then `TARGET_VERIFIED`, otherwise `NO_TARGET`. The confidence
+card shows the lowest detection score across the frame; the target card separately
+shows the selected survivor's confidence. Hazard presence remains visible even
+when the overall state is low confidence. Empty scenes and missing vision are
+displayed distinctly. Stale or disconnected feeds clear the five current fields.
+
+Location describes Member 3's selected detection, which may be a hazard. Missing
+detection GPS displays **Location unavailable**, even if drone GPS is known; drone
+position is labeled separately and is never substituted for a survivor fix. Enrich
+geographic coordinates before the first POST: accepted frame states are immutable,
+so a second POST adding GPS to the same frame returns 409.
 
 ```python
 from datetime import datetime
@@ -225,7 +273,9 @@ connection with a protocol error.
 
 `LiveEnvelope` carries `type="live"`, a monotonic publication `sequence`, a nullable
 `frame` with JPEG base64 and acquisition metadata, nullable matching `vision`, and
-complete `telemetry`. Run the schema exporter below for the exact JSON definitions.
+nullable matching `reasoning` with target, confidence, hazard, location, and spatial
+state, plus complete `telemetry`. All three frame IDs must agree when reasoning is
+present. Run the schema exporter below for the exact JSON definitions.
 
 The UI reconnects with bounded backoff and flags stale video. It shows survivor
 boxes, box-derived translucent hazard masks, terminal-style reasoning traces,
@@ -267,11 +317,22 @@ python scripts/smoke_test.py
 curl http://localhost:8000/healthz
 ```
 
+With Node.js available, run the dependency-free dashboard presentation checks:
+
+```bash
+node --test tests/vision_state.test.cjs
+```
+
 Tests exercise strict contracts, geometry, real MP4 loops, pacing, bounded backlog,
 network-drop recovery, synchronized WebSocket delivery, low-confidence escalation,
 override / resume, idempotency, audit retention, auth / origin checks, body size
 limits, and malformed JSON. Real RTSP / AWS interoperability requires live devices
 and credentials; local tests do not certify those deployments.
+
+The integration tests also exercise authenticated vision POST → typed reasoning →
+correlated WebSocket delivery for verified survivors, low confidence, hazards,
+and empty frames. Presentation tests verify all five fields, unknown locations,
+stale / mismatched frame clearing, and the distinction between drone and detection GPS.
 
 `requirements.lock.txt` pins tested dependencies; `pyproject.toml` defines compatible
 ranges. Local verification used Python 3.13.7 and OpenCV 5.0.0; all pinned packages

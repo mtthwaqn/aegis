@@ -9,6 +9,7 @@ from src.server.schemas import (
     BoundingBox,
     LiveEnvelope,
     OverrideRequest,
+    ReasoningState,
     SystemTelemetry,
     VisionState,
 )
@@ -22,6 +23,7 @@ def main() -> None:
     for model in (
         BoundingBox,
         VisionState,
+        ReasoningState,
         AgentActionPayload,
         SystemTelemetry,
         LiveEnvelope,

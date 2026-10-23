@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class ConfidenceStatus(str, Enum):
+class ConfidenceStatus(StrEnum):
     HIGH_CONFIDENCE = "HIGH_CONFIDENCE"
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
 
