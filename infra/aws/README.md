@@ -1,8 +1,8 @@
 # Member 5 — AWS account, IAM, and Kinesis plan
 
-This is the current cloud slice. The OpenCV workload already on `main` stays as it is.
-Do not deploy the application, and do not benchmark. The detector will change when
-training lands, so this plan carries video only and does not pin a model.
+This is the current cloud slice. Do not deploy the application, and do not record
+a Graviton or COOL benchmark. The live detector stays classical unless
+`AEGIS_DETECTOR=trained`. This plan carries video only and does not pin a model.
 
 ## Account
 
@@ -62,6 +62,8 @@ the app on `AEGIS_VIDEO_SOURCE=mock` until a real publisher is sending H.264.
 
 ## Explicitly later
 
-- Docker, ECR, ECS, and deploying the command center
-- Graviton, COOL, and any FPS / latency / cost benchmark
-- Swapping the detector when training arrives; that change belongs in perception, not in this stream
+The image definition in [`../runtime/`](../runtime/README.md) is not deployed.
+Do not push it to ECR and do not register the ECS task. Graviton and COOL are
+still unmeasured. `scripts/benchmark_local.py` times the locked classical
+detector on the current machine and does not record a cloud result. Selecting
+the trained detector belongs in perception, not in this stream.

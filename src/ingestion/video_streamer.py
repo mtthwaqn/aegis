@@ -56,7 +56,10 @@ class VideoStreamer:
         self._url_expires = 0.0
         self._resolved_url = ""
         source = settings.video_source
-        self._is_local = source != "mock" and not urlparse(source).scheme
+        parsed = urlparse(source)
+        # A Windows drive letter is not a URL scheme.
+        windows_drive = len(parsed.scheme) == 1 and parsed.scheme.isalpha()
+        self._is_local = source != "mock" and (not parsed.scheme or windows_drive)
         if self._is_local and not Path(source).is_file():
             self._executor.shutdown(wait=False)
             raise ValueError("Local video source does not exist")

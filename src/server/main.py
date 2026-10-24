@@ -118,12 +118,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @application.get("/command-center", response_class=HTMLResponse)
     async def command_center() -> HTMLResponse:
-        return HTMLResponse(files("dashboard").joinpath("command_center.html").read_text())
+        return HTMLResponse(
+            files("dashboard").joinpath("command_center.html").read_text(encoding="utf-8")
+        )
 
     @application.get("/assets/vision-state.js", include_in_schema=False)
     async def vision_state_script() -> Response:
         return Response(
-            files("dashboard").joinpath("vision_state.js").read_text(),
+            files("dashboard").joinpath("vision_state.js").read_text(encoding="utf-8"),
             media_type="text/javascript",
             headers={"Cache-Control": "no-cache"},
         )
