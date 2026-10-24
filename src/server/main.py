@@ -120,6 +120,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def command_center() -> HTMLResponse:
         return HTMLResponse(files("dashboard").joinpath("command_center.html").read_text())
 
+    @application.get("/assets/vision-state.js", include_in_schema=False)
+    async def vision_state_script() -> Response:
+        return Response(
+            files("dashboard").joinpath("vision_state.js").read_text(),
+            media_type="text/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     @application.get("/api/telemetry", dependencies=[Auth])
     async def telemetry(request: Request) -> SystemTelemetry:
         return await get_bus(request).telemetry()

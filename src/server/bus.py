@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from src.ingestion.video_streamer import CapturedFrame, VideoStreamer, encode_jpeg
+from src.reasoning.vision_state import to_reasoning_payload
 from src.server.config import Settings
 from src.server.schemas import (
     AgentActionPayload,
@@ -20,6 +21,7 @@ from src.server.schemas import (
     DecisionTrace,
     LiveEnvelope,
     OverrideRequest,
+    ReasoningState,
     SystemTelemetry,
     VideoFramePayload,
     VisionState,
@@ -44,6 +46,7 @@ class IntegrationBus:
         self.lock = asyncio.Lock()
         self.frames: OrderedDict[int, StoredFrame] = OrderedDict()
         self.vision: OrderedDict[int, VisionState] = OrderedDict()
+        self.reasoning: OrderedDict[int, ReasoningState] = OrderedDict()
         self.actions: deque[DecisionTrace] = deque(maxlen=50)
         self._seen_actions: OrderedDict[str, DecisionTrace] = OrderedDict()
         self.subscribers: set[asyncio.Queue[str]] = set()
@@ -132,9 +135,14 @@ class IntegrationBus:
                 raise BusConflict("Vision frame_id already has a different immutable state")
             return
         now = time.monotonic()
+        reasoning = ReasoningState.model_validate(
+            to_reasoning_payload(state, self.settings.low_confidence_threshold)
+        )
         self.vision[state.frame_id] = state
+        self.reasoning[state.frame_id] = reasoning
         if len(self.vision) > self.settings.frame_cache_size:
-            self.vision.popitem(last=False)
+            expired, _ = self.vision.popitem(last=False)
+            self.reasoning.pop(expired, None)
         self._vision_times.append(now)
         self._latencies.append((now, state.latency_ms))
         # Out-of-order states are cached for correlation but never rewind safety state.
@@ -232,6 +240,7 @@ class IntegrationBus:
                     if len(self.frames) > self.settings.frame_cache_size:
                         expired, _ = self.frames.popitem(last=False)
                         self.vision.pop(expired, None)
+                        self.reasoning.pop(expired, None)
                     if frame.mock_vision is not None:
                         self._put_vision(frame.mock_vision)
                         self._mock_branch(frame.mock_vision)
@@ -348,6 +357,7 @@ class IntegrationBus:
                     sequence=self._broadcast_sequence,
                     frame=selected.payload if selected else None,
                     vision=self.vision.get(selected.payload.frame_id) if selected else None,
+                    reasoning=self.reasoning.get(selected.payload.frame_id) if selected else None,
                     telemetry=self._telemetry(now),
                 )
                 if self.subscribers:

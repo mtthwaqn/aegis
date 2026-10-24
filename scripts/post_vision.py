@@ -1,22 +1,32 @@
-"""Fetch the latest frame, run perception, and submit the vision state."""
+"""Continuously acquire gateway frames, run perception, and publish VisionState."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
+import sys
 import time
 from datetime import datetime
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import cv2
 import numpy as np
 
 from src.perception.video_processing import analyze, to_vision_state
+from src.server.config import Settings
 
 
-def submit_latest(base_url: str) -> tuple[int, dict[str, object]]:
-    latest = Request(f"{base_url.rstrip('/')}/api/frames/latest")
+def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dict[str, object]]:
+    """Publish one frame, including empty scenes; preserve acquisition identity.
+
+    Geographic enrichment, when available, must precede this first immutable POST.
+    Raw classical detections deliberately leave geographic coordinates unknown.
+    """
+    token = Settings().api_token if api_token is None else api_token
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    latest = Request(f"{base_url.rstrip('/')}/api/frames/latest", headers=headers)
     with urlopen(latest, timeout=5) as response:
         frame_id = int(response.headers["X-Frame-ID"])
         timestamp = datetime.fromisoformat(response.headers["X-Frame-Timestamp"])
@@ -28,11 +38,10 @@ def submit_latest(base_url: str) -> tuple[int, dict[str, object]]:
         raise RuntimeError("Decoded frame does not match the acquisition headers")
     result = analyze(frame)
     state = to_vision_state(result, frame_id, timestamp)
-    payload = state.model_dump_json().encode()
     request = Request(
         f"{base_url.rstrip('/')}/api/telemetry/vision",
-        data=payload,
-        headers={"Content-Type": "application/json"},
+        data=state.model_dump_json().encode(),
+        headers=headers | {"Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -40,9 +49,11 @@ def submit_latest(base_url: str) -> tuple[int, dict[str, object]]:
             body = json.loads(response.read().decode())
             status = response.status
     except HTTPError as error:
-        body = json.loads(error.read().decode())
-        status = error.code
-    summary = {
+        # Read the error before closing its underlying connection.
+        with error:
+            body = json.loads(error.read().decode())
+            status = error.code
+    return status, {
         "http_status": status,
         "response": body,
         "frame_id": frame_id,
@@ -56,31 +67,51 @@ def submit_latest(base_url: str) -> tuple[int, dict[str, object]]:
             for detection in result.detections
         ],
     }
-    return status, summary
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--attempts", type=int, default=80)
-    args = parser.parse_args()
-    last: dict[str, object] = {}
-    for _ in range(args.attempts):
-        status, last = submit_latest(args.base_url)
-        detections = last["detections"]
-        labels = (
-            {str(item["label"]) for item in detections} if isinstance(detections, list) else set()
-        )
-        if status == 202 and "PERSON" in labels:
-            print(json.dumps(last, indent=2))
-            return
-        if status not in {202, 409}:
-            print(json.dumps(last, indent=2))
-            raise SystemExit(1)
-        time.sleep(0.75)
-    print(json.dumps(last, indent=2))
-    raise SystemExit("No accepted person detection in the sampled frames")
+    runs = parser.add_mutually_exclusive_group()
+    runs.add_argument("--attempts", type=int, help="Stop after this many polling attempts")
+    runs.add_argument("--once", action="store_true", help="Process one acquired frame and exit")
+    parser.add_argument(
+        "--interval", type=float, default=0.1, help="Pause between frames in seconds"
+    )
+    args = parser.parse_args(argv)
+    if not math.isfinite(args.interval) or args.interval < 0.01:
+        parser.error("--interval must be finite and at least 0.01 seconds")
+    if args.attempts is not None and args.attempts < 1:
+        parser.error("--attempts must be positive")
+    limit = 1 if args.once else args.attempts
+    token = Settings().api_token
+    attempts = 0
+    accepted = 0
+    try:
+        while limit is None or attempts < limit:
+            attempts += 1
+            try:
+                status, summary = submit_latest(args.base_url, token)
+                print(json.dumps(summary), flush=True)
+                if status == 202:
+                    accepted += 1
+                elif status != 409:
+                    return 1
+            except HTTPError as error:
+                with error:
+                    print(f"Frame acquisition rejected (HTTP {error.code})", file=sys.stderr)
+                    if error.code in {401, 403} or args.once:
+                        return 1
+            except (URLError, TimeoutError, OSError, ValueError, RuntimeError, cv2.error):
+                print("Vision acquisition/processing failed; retrying", file=sys.stderr)
+                if args.once:
+                    return 1
+            if limit is None or attempts < limit:
+                time.sleep(args.interval)
+    except KeyboardInterrupt:
+        return 0
+    return 0 if accepted else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
