@@ -1,0 +1,30 @@
+{
+  "family": "aegis-command-center",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "cpu": "1024",
+  "memory": "2048",
+  "containerDefinitions": [
+    {
+      "name": "command-center",
+      "image": "aegis-command-center:local",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "AEGIS_DETECTOR", "value": "classical"},
+        {"name": "AEGIS_VIDEO_SOURCE", "value": "mock"},
+        {"name": "AEGIS_DEPLOYMENT_VERIFIED", "value": "false"},
+        {"name": "AEGIS_KINESIS_REGION", "value": "ap-southeast-2"}
+      ]
+    }
+  ]
+}

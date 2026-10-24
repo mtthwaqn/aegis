@@ -22,3 +22,8 @@ def low_visibility(frame: NDArray[np.uint8]) -> bool:
     """True when the frame is too flat to trust a detection, such as haze."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var()) < 15.0
+
+
+def is_blurred(frame: NDArray[np.uint8]) -> bool:
+    """True when high-frequency detail is gone, including defocus and heavy blur."""
+    return low_visibility(frame)

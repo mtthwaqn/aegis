@@ -141,7 +141,7 @@ an expired or conflicting immutable frame, so the next attempt acquires a new fr
 The built-in `mock` feed already supplies its own vision; use a local clip / RTSP
 source for this publisher to avoid conflicting with synthetic detections.
 
-The live `analyze()` path uses the classical detector unless the publisher process
+The live `analyze()` path is locked to the classical detector unless the publisher process
 sets `AEGIS_DETECTOR=trained`. Trained mode keeps person boxes as `survivor` and boat
 boxes as `hazard` at confidence 0.45. Weights on disk do not switch the path, and
 geographic coordinates stay empty. Install the optional package first with
@@ -270,6 +270,30 @@ Supported actions: `DISPATCH_SUPPLY_DRONE`, `REROUTE_CONVOY`, `ESCALATE_HUMAN`.
 otherwise a UUID is generated. The last 1,000 IDs are remembered independently
 of the 50-event ring. Retrying an earlier accepted action returns its original
 receipt, which is **not permission to execute hardware again**.
+
+The local agent turns one `VisionState` into at most one of those actions:
+
+| Vision | Tool | Wire action |
+| --- | --- | --- |
+| Verified survivor with a geographic fix | `dispatch_payload` | `DISPATCH_SUPPLY_DRONE` / `rescue_payload` |
+| Hazard with a geographic fix | `reroute_ground_rescue` | `REROUTE_CONVOY` / `ground_rescue` |
+| Low confidence, blur, occlusion, or a missing fix | `escalate_to_human` | `ESCALATE_HUMAN` |
+| No target | none | no action |
+
+`0,0` remains the unavailable coordinate and is never a dispatch or reroute target.
+MCP tools `read_vision` and `assess_frame` run first. Degraded frames call
+`reanalyze_frame` once. Blur and occlusion are not cleared by that second look.
+The execution trace is the tool list stored in `reasoning_trace` and shown in the
+command-center terminal. `hardware_executed` stays false.
+
+```bash
+python scripts/detect_and_act.py
+python -m src.mcp.server
+```
+
+Docker, ECR, and ECS definitions live in [`infra/runtime/`](infra/runtime/README.md)
+and are not deployed. `scripts/benchmark_local.py` times the locked classical
+detector on the current machine. It does not record a Graviton or COOL number.
 
 ### WebSocket authentication and browser UI
 
