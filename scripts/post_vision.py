@@ -22,7 +22,7 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
     """Publish one frame, including empty scenes; preserve acquisition identity.
 
     Geographic enrichment, when available, must precede this first immutable POST.
-    Raw classical detections deliberately leave geographic coordinates unknown.
+    Detections leave geographic coordinates empty.
     """
     token = Settings().api_token if api_token is None else api_token
     headers = {"Authorization": f"Bearer {token}"} if token else {}

@@ -6,6 +6,12 @@ from src.server.config import Settings
 from src.server.schemas import AgentActionPayload, Coordinates, VisionState
 
 
+@pytest.fixture(autouse=True)
+def _classical_detector(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Weights on disk must not change the detector used by existing tests."""
+    monkeypatch.setenv("AEGIS_DETECTOR", "classical")
+
+
 @pytest.fixture
 def settings() -> Settings:
     return Settings(_env_file=None, video_source="mock", mock_actions=False, api_token="")

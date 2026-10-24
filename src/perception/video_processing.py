@@ -13,6 +13,7 @@ from src.perception.hazard_detection import detect_hazards, overlaps
 from src.perception.preprocessing import low_visibility, preprocess
 from src.perception.segmentation import components, foreground
 from src.perception.target_detection import Detection, detect_targets
+from src.perception.trained_detector import detect_trained, use_trained_detector
 from src.perception.visualization import annotate
 from src.server.schemas import BoundingBox, VisionState
 
@@ -28,7 +29,18 @@ class PerceptionResult:
 
 
 def analyze(frame: NDArray[np.uint8]) -> PerceptionResult:
+    """Detect on one frame.
+
+    Classical detection is the default. ``AEGIS_DETECTOR=trained`` selects the
+    person/boat weights at confidence 0.45. Weights on disk do not switch this.
+    """
     started = time.perf_counter()
+    if use_trained_detector():
+        return _analyze_trained(frame, started)
+    return _analyze_classical(frame, started)
+
+
+def _analyze_classical(frame: NDArray[np.uint8], started: float) -> PerceptionResult:
     processed = preprocess(frame)
     mask, score = foreground(processed)
     regions = components(mask, score)
@@ -39,6 +51,22 @@ def analyze(frame: NDArray[np.uint8]) -> PerceptionResult:
         processed,
     )
     detections = people + hazards
+    elapsed = (time.perf_counter() - started) * 1000
+    return PerceptionResult(
+        annotated=annotate(processed, detections),
+        detections=detections,
+        latency_ms=elapsed,
+        is_occluded=low_visibility(processed) and not people,
+        width=width,
+        height=height,
+    )
+
+
+def _analyze_trained(frame: NDArray[np.uint8], started: float) -> PerceptionResult:
+    processed = preprocess(frame)
+    height, width = frame.shape[:2]
+    detections = detect_trained(frame)
+    people = [item for item in detections if item.classification == "survivor"]
     elapsed = (time.perf_counter() - started) * 1000
     return PerceptionResult(
         annotated=annotate(processed, detections),

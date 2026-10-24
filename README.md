@@ -114,6 +114,9 @@ the process environment.
 | `AEGIS_KINESIS_DATA_ENDPOINT` | unset | Optional data API endpoint, not a playlist URL |
 | `AEGIS_KINESIS_SESSION_SECONDS` | `3600` | Signed HLS session lifetime, renewed before expiry |
 | `AEGIS_DASHBOARD_BACKEND_URL` | `http://localhost:8000` | Browser-reachable Streamlit iframe backend |
+| `AEGIS_DETECTOR` | `classical` | `trained` selects the person/boat weights. Unset stays classical |
+| `AEGIS_DETECTOR_WEIGHTS` | `data/training/runs/person-boat-sds/weights/best.pt` | Local weights used only when the detector is `trained` |
+| `AEGIS_DETECTOR_CONF` | `0.45` | Minimum score kept by the trained detector |
 
 Local clips loop automatically:
 
@@ -138,10 +141,16 @@ an expired or conflicting immutable frame, so the next attempt acquires a new fr
 The built-in `mock` feed already supplies its own vision; use a local clip / RTSP
 source for this publisher to avoid conflicting with synthetic detections.
 
-The live `analyze()` path still uses Member 2's classical detector. Connecting the
-trained model and its 0.45 detection threshold remains Member 2's task. The separate
-0.65 human-review threshold is applied by Member 3 reasoning using the server's
-`AEGIS_LOW_CONFIDENCE_THRESHOLD` configuration.
+The live `analyze()` path uses the classical detector unless the publisher process
+sets `AEGIS_DETECTOR=trained`. Trained mode keeps person boxes as `survivor` and boat
+boxes as `hazard` at confidence 0.45. Weights on disk do not switch the path, and
+geographic coordinates stay empty. Install the optional package first with
+`pip install ultralytics`. The separate 0.65 human-review threshold is applied by
+Member 3 reasoning using the server's `AEGIS_LOW_CONFIDENCE_THRESHOLD` configuration.
+
+```bash
+AEGIS_DETECTOR=trained python scripts/post_vision.py --interval 0.1
+```
 
 Frames are scaled to fit 1280×720 while preserving aspect ratio. Member 2/3 must
 use the **decoded dimensions** returned by the frame endpoint. The reader paces
