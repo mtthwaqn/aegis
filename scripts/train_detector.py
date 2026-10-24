@@ -8,7 +8,13 @@ DJI_0804 is not in this set.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from src.perception.trained_detector import inference_device  # noqa: E402
 
 DATASET = Path("data/training/detect/dataset.yaml")
 RUNS = Path("data/training/runs")
@@ -35,7 +41,7 @@ def main() -> None:
         epochs=args.epochs,
         imgsz=args.imgsz,
         batch=args.batch,
-        device="mps",
+        device=inference_device(),
         project=str(RUNS.resolve()),
         name=args.name,
         exist_ok=True,

@@ -26,7 +26,9 @@ from eval_ground_truth import (  # noqa: E402
     matched,
 )
 
-WEIGHTS = Path("runs/detect/data/training/runs/person-boat/weights/best.pt")
+from src.perception.trained_detector import DEFAULT_WEIGHTS, inference_device  # noqa: E402
+
+WEIGHTS = DEFAULT_WEIGHTS
 LABEL_OF = {"person": "survivor", "boat": "hazard"}
 
 
@@ -57,7 +59,7 @@ def score(prefix: str, stride: int, confidence: float, weights: Path) -> None:
             fitted, ratio = fit_frame(frame)
             frames += 1
             predicted = model.predict(
-                fitted, conf=confidence, imgsz=640, verbose=False, device="mps"
+                fitted, conf=confidence, imgsz=640, verbose=False, device=inference_device()
             )
             found: dict[str, list[list[float]]] = defaultdict(list)
             for box in predicted[0].boxes:

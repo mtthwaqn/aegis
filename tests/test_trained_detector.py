@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -69,6 +70,20 @@ def test_trained_flag_publishes_model_boxes(monkeypatch: pytest.MonkeyPatch) -> 
     assert [box.classification for box in state.bounding_boxes] == ["survivor", "hazard"]
     assert state.drone_coordinates is None
     assert all(box.geo_coordinates is None for box in state.bounding_boxes)
+
+
+def test_inference_device_is_not_forced_to_mps() -> None:
+    from src.perception.trained_detector import inference_device
+
+    assert inference_device() in {"cpu", "cuda", "mps"}
+
+
+def test_training_scripts_do_not_force_mps() -> None:
+    root = Path(__file__).resolve().parents[1]
+    for name in ("train_detector.py", "eval_trained.py"):
+        text = (root / "scripts" / name).read_text(encoding="utf-8")
+        assert 'device="mps"' not in text
+        assert "device='mps'" not in text
 
 
 def test_unknown_detector_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -90,7 +90,7 @@ def detect_trained(frame: NDArray[np.uint8]) -> list[Detection]:
         conf=confidence,
         imgsz=640,
         verbose=False,
-        device=_device(),
+        device=inference_device(),
     )
     result = predicted[0]
     boxes = result.boxes
@@ -144,12 +144,17 @@ def _load(path: Path) -> object:
     return _model
 
 
-def _device() -> str:
+def inference_device() -> str:
+    """Prefer CUDA, then Apple MPS. CPU covers Windows and Graviton."""
     try:
         import torch
     except ImportError:
         return "cpu"
-    if torch.backends.mps.is_available():
+    cuda = getattr(torch, "cuda", None)
+    if cuda is not None and cuda.is_available():
+        return "cuda"
+    mps = getattr(getattr(torch, "backends", None), "mps", None)
+    if mps is not None and mps.is_available():
         return "mps"
     return "cpu"
 
