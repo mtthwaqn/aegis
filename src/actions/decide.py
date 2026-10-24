@@ -66,7 +66,14 @@ def _dispatch(vision: VisionState, coordinates: Coordinates) -> Decision:
     return Decision(
         "dispatch_payload",
         reason,
-        _action(vision, "DISPATCH_SUPPLY_DRONE", "rescue_payload", coordinates, reason, "dispatch_payload"),
+        _action(
+            vision,
+            "DISPATCH_SUPPLY_DRONE",
+            "rescue_payload",
+            coordinates,
+            reason,
+            "dispatch_payload",
+        ),
     )
 
 

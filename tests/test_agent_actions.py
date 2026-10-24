@@ -59,7 +59,7 @@ def _detailed() -> np.ndarray:
 
 
 def _blurred() -> np.ndarray:
-    return cv2.GaussianBlur(_detailed(), (0, 0), 11)
+    return cv2.GaussianBlur(_sea(), (0, 0), 11)
 
 
 def _names(trace) -> list[str]:

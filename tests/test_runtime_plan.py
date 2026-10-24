@@ -20,7 +20,9 @@ def test_runtime_image_is_not_a_deployment() -> None:
     assert "AKIA" not in dockerfile
     assert task["containerDefinitions"][0]["image"] == "aegis-command-center:local"
     assert task["runtimePlatform"]["cpuArchitecture"] == "ARM64"
-    environment = {item["name"]: item["value"] for item in task["containerDefinitions"][0]["environment"]}
+    environment = {
+        item["name"]: item["value"] for item in task["containerDefinitions"][0]["environment"]
+    }
     assert environment["AEGIS_DEPLOYMENT_VERIFIED"] == "false"
     assert environment["AEGIS_DETECTOR"] == "classical"
     assert environment["AEGIS_VIDEO_SOURCE"] == "mock"
