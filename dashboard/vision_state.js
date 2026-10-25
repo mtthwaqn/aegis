@@ -43,10 +43,11 @@
     if (r.location) {
       view.visionLocation = coordinates(r.location);
       view.visionLocationDetail = 'Selected detection GPS';
+    } else if (r.drone_coordinates) {
+      view.visionLocation = coordinates(r.drone_coordinates);
+      view.visionLocationDetail = 'Demo aircraft GPS / not a target in this frame';
     } else {
-      view.visionLocationDetail = r.drone_coordinates
-        ? 'Drone GPS ' + coordinates(r.drone_coordinates) + ' / detection fix unavailable'
-        : 'Georeferencing metadata required';
+      view.visionLocationDetail = 'Georeferencing metadata required';
     }
     view.visionState = words(r.state);
     view.visionStateDetail = r.is_occluded ? 'Occluded / human review required' : 'Member 3 spatial assessment';

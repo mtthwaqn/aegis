@@ -45,6 +45,30 @@ def test_bright_swimmer_becomes_contract_box() -> None:
     assert state.drone_coordinates is None
 
 
+def test_a_cloud_is_not_a_person() -> None:
+    for background, axes in (((220, 170, 120), (18, 12)), ((235, 220, 200), (22, 14))):
+        frame = np.full((540, 960, 3), background, dtype=np.uint8)
+        cv2.ellipse(frame, (480, 250), axes, 0, 0, 360, (255, 255, 255), -1)
+        people = [item for item in analyze(frame).detections if item.classification == "survivor"]
+        assert people == []
+
+
+def test_a_merged_scene_keeps_the_bright_vessel() -> None:
+    from src.perception.hazard_detection import recover_vessels
+    from src.perception.segmentation import Component
+
+    frame = np.zeros((200, 400, 3), dtype=np.uint8)
+    frame[:] = (80, 90, 70)
+    frame[40:90, 300:360] = (230, 230, 230)
+    score = np.zeros((200, 400), dtype=np.uint8)
+    score[20:180, 20:380] = 30
+    score[40:90, 300:360] = 80
+    giant = Component(20, 20, 360, 160, 50_000, 40.0)
+    recovered = recover_vessels(frame, score, [giant])
+    assert any(piece.x >= 280 for piece in recovered)
+    assert all(piece.w < 200 for piece in recovered)
+
+
 def test_large_obstacle_is_hazard_and_warm_fragment_is_debris() -> None:
     frame = _sea()
     cv2.rectangle(frame, (80, 80), (230, 150), (20, 20, 20), -1)

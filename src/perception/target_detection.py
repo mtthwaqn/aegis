@@ -52,6 +52,8 @@ def detect_targets(
         h = min(height - y, region.h + 2 * pad)
         if float(gray[y : y + h, x : x + w].mean()) < MIN_BOX_BRIGHTNESS:
             continue
+        if _surrounded_by_sky(frame, x, y, w, h):
+            continue
         confidence = min(0.92, max(0.45, region.contrast / 60))
         detections.append(
             Detection(
@@ -63,6 +65,27 @@ def detect_targets(
         )
     detections.sort(key=lambda item: item.confidence, reverse=True)
     return detections
+
+
+def _surrounded_by_sky(frame: NDArray[np.uint8], x: int, y: int, w: int, h: int) -> bool:
+    """A bright blob in white sky is a cloud, not a person in the water."""
+    height, width = frame.shape[:2]
+    pad = max(6, min(w, h))
+    y0, x0 = max(0, y - pad), max(0, x - pad)
+    y1, x1 = min(height, y + h + pad), min(width, x + w + pad)
+    hsv = cv2.cvtColor(frame[y0:y1, x0:x1], cv2.COLOR_BGR2HSV)
+    ring = np.ones(hsv.shape[:2], dtype=bool)
+    ring[y - y0 : y - y0 + h, x - x0 : x - x0 + w] = False
+    context = hsv[ring]
+    if context.size < 60:
+        return False
+    hue = float(context[:, 0].mean())
+    saturation = float(context[:, 1].mean())
+    value = float(context[:, 2].mean())
+    # Open water in the swimmer fixture sits near value 150. Sky is much brighter.
+    if value > 185 and saturation < 80:
+        return True
+    return value > 190 and 95 <= hue <= 130 and saturation > 40
 
 
 def _person_shaped(region: Component, scale: float) -> bool:

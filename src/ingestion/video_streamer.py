@@ -136,6 +136,8 @@ class VideoStreamer:
             if not self._capture.isOpened():
                 self._release()
                 return None
+            # Keep the newest live frame instead of replaying a long RTSP buffer.
+            self._capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         ok, frame = self._capture.read()
         if not ok and self._is_local:
             # Seek, then reopen if the container/backend cannot seek accurately.

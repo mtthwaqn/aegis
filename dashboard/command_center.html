@@ -66,12 +66,14 @@ function renderPending(){
  decoding=true;const decodeAttempt=attempt;const image=new Image();image.onload=()=>{if(decodeAttempt!==attempt)return;decoding=false;if(packet.frame.frame_id>=drawnId){feed.width=packet.frame.width;feed.height=packet.frame.height;fc.drawImage(image,0,0);drawnId=packet.frame.frame_id;drawnSignature=signature;annotate(packet,true);}if(pending)renderPending();};image.onerror=()=>{if(decodeAttempt!==attempt)return;decoding=false;text('feedState','JPEG decode failure');if(pending)renderPending();};image.src='data:image/jpeg;base64,'+packet.frame.jpeg_base64;
 }
 function annotate(packet,draw){
- AegisVision.render(packet,{stale:performance.now()-lastFrameTime>2000},document);
- const v=packet.vision,frame=packet.frame;const valid=v&&v.frame_id===frame.frame_id;
+ const incoming=packet.vision,frame=packet.frame;const matched=!!(incoming&&incoming.frame_id===frame.frame_id);
+ const v=incoming;const valid=!!v;
+ const display=valid&&!matched?{...packet,vision:{...v,frame_id:frame.frame_id},reasoning:packet.reasoning?{...packet.reasoning,frame_id:frame.frame_id}:null}:packet;
+ AegisVision.render(display,{stale:performance.now()-lastFrameTime>2000},document);
  if(draw&&valid){for(const b of v.bounding_boxes){const [x,y,w,h]=b.coordinates;const color=b.classification==='survivor'?'#ffcc70':b.classification==='hazard'?'#ff6c72':'#91abff';if(b.classification==='hazard'){fc.fillStyle='#ff6c7224';fc.fillRect(x,y,w,h);fc.strokeStyle='#ff6c7244';fc.lineWidth=1;for(let i=0;i<w+h;i+=14){fc.beginPath();fc.moveTo(x+Math.min(i,w),y+Math.max(0,i-w));fc.lineTo(x+Math.max(0,i-h),y+Math.min(i,h));fc.stroke();}}fc.strokeStyle=color;fc.lineWidth=2;fc.strokeRect(x,y,w,h);const label=b.classification.toUpperCase()+' '+(b.confidence*100).toFixed(0)+'%';fc.font='12px monospace';const tw=fc.measureText(label).width+12;const ly=Math.max(0,y-23);fc.fillStyle='#07121ee8';fc.fillRect(x,ly,tw,21);fc.fillStyle=color;fc.fillText(label,x+6,ly+15);fc.beginPath();fc.moveTo(b.centroid[0]-5,b.centroid[1]);fc.lineTo(b.centroid[0]+5,b.centroid[1]);fc.moveTo(b.centroid[0],b.centroid[1]-5);fc.lineTo(b.centroid[0],b.centroid[1]+5);fc.stroke();}}
  text('frameMeta','FRAME '+frame.frame_id+' / VISION '+(valid?v.frame_id:'UNAVAILABLE'));
  text('detMeta',valid?v.bounding_boxes.filter(b=>b.classification==='survivor').length+' SURVIVORS / '+v.bounding_boxes.filter(b=>b.classification==='hazard').length+' HAZARDS':'WAITING FOR MATCHING VISION');
- text('feedState',valid?(v.is_occluded?'OCCLUDED / HUMAN REVIEW':'SYNCHRONIZED · '+new Date(frame.timestamp).toLocaleTimeString()):'VIDEO ONLY · no matching detections');
+ text('feedState',valid?(v.is_occluded?'OCCLUDED / HUMAN REVIEW':(matched?'SYNCHRONIZED · ':'HELD DETECTION · ')+new Date(frame.timestamp).toLocaleTimeString()):'VIDEO ONLY · no matching detections');
 }
 function updateUI(message){
  if(!message.frame)AegisVision.render(null,{},document);
@@ -81,7 +83,7 @@ function updateUI(message){
  if(!t.action_log.length){const e=document.createElement('div');e.className='empty';e.textContent='Awaiting agent execution events…';traceList.append(e);}
  for(const trace of [...t.action_log].reverse()){const row=document.createElement('div');row.className='trace '+trace.status;for(const [cls,value] of [['trace-title',new Date(trace.received_at).toLocaleTimeString()+' / '+trace.action.action_type],['trace-stages',trace.stages.join(' → ')+' / '+trace.origin.toUpperCase()+' / '+trace.status.toUpperCase()],['trace-reason',trace.action.reasoning_trace]]){const line=document.createElement('div');line.className=cls;line.textContent=value;row.append(line);}traceList.append(row);}traceList.scrollTop=oldTop;
  const enabled=t.control.override_enabled;$('override').classList.toggle('engaged',enabled);text('override',enabled?'RESUME AUTONOMOUS CONTROL':'HUMAN COMMANDER OVERRIDE');text('controlNote',(enabled?'HUMAN CONTROL LATCHED':'AUTONOMY ENABLED')+' / '+t.control.reason);
- const v=message.vision;if(v&&v.frame_id===message.frame?.frame_id){mapState.points=v.bounding_boxes.filter(b=>b.geo_coordinates).map(b=>({...b.geo_coordinates,kind:b.classification,confidence:b.confidence}));mapState.drone=v.drone_coordinates;if(!mapState.userMoved&&mapState.drone){mapState.lat=mapState.drone.lat;mapState.lon=mapState.drone.lon;}}else{mapState.points=[];mapState.drone=null;}
+ const v=message.vision;if(v){mapState.points=v.bounding_boxes.filter(b=>b.geo_coordinates).map(b=>({...b.geo_coordinates,kind:b.classification,confidence:b.confidence}));if(v.drone_coordinates){mapState.drone=v.drone_coordinates;if(!mapState.userMoved){mapState.lat=mapState.drone.lat;mapState.lon=mapState.drone.lon;}}}
  mapState.routes=t.action_log.filter(x=>x.status==='accepted'&&x.action.action_type==='REROUTE_CONVOY'&&x.action.route_coordinates.length>1).slice(-3).map(x=>x.action.route_coordinates);drawMap();
 }
 $('override').onclick=async()=>{

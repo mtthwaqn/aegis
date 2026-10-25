@@ -20,11 +20,14 @@ COPY infra/runtime/media/clip.mp4 /app/media/clip.mp4
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV AEGIS_DETECTOR=classical \
-    AEGIS_VIDEO_SOURCE=/app/media/clip.mp4 \
-    AEGIS_INGESTION_FPS=1 \
+    AEGIS_VIDEO_SOURCE=rtsps://stream.skydio.com/demo/Skydio/color \
+    AEGIS_LIVE_TELEMETRY=wss://stream.skydio-dev.com/data/demo \
+    AEGIS_READ_TIMEOUT_MS=8000 \
+    OPENCV_FFMPEG_CAPTURE_OPTIONS=rtsp_transport;tcp \
+    AEGIS_INGESTION_FPS=8 \
     AEGIS_VISION_WAIT_MS=2000 \
-    AEGIS_BROADCAST_HZ=5 \
-    AEGIS_SYNTHETIC_GEO=true \
+    AEGIS_BROADCAST_HZ=8 \
+    AEGIS_SYNTHETIC_GEO=false \
     AEGIS_LOW_CONFIDENCE_THRESHOLD=0.50 \
     AEGIS_DEPLOYMENT_VERIFIED=false \
     AEGIS_MOCK_ACTIONS=false \

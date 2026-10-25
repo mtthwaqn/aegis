@@ -75,7 +75,8 @@ def test_posted_vision_reaches_websocket_with_all_five_fields(
             pytest.fail("Posted VisionState did not reach the live reasoning stream")
         parsed = LiveEnvelope.model_validate(packet)
         reasoning = packet["reasoning"]
-        assert parsed.frame.frame_id == parsed.vision.frame_id == parsed.reasoning.frame_id
+        assert parsed.vision.frame_id == parsed.reasoning.frame_id == frame_id
+        assert parsed.frame.frame_id >= frame_id
         assert reasoning["state"] == expected_state
         assert reasoning["confidence"]["score"] == confidence
         assert reasoning["hazard"]["detected"] == (classification == "hazard")

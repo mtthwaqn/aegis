@@ -343,21 +343,46 @@ class IntegrationBus:
         while True:
             async with self.lock:
                 now = time.monotonic()
-                selected = next(
-                    (
-                        frame
-                        for frame in reversed(self.frames.values())
-                        if frame.payload.frame_id in self.vision
-                        or (now - frame.received_monotonic) * 1000 >= self.settings.vision_wait_ms
-                    ),
-                    None,
-                )
+                frames = list(self.frames.values())
+                selected = None
+                if frames:
+                    newest = frames[-1]
+                    newest_waited = (
+                        (now - newest.received_monotonic) * 1000 >= self.settings.vision_wait_ms
+                    )
+                    # Once vision exists, keep showing the newest picture. The page
+                    # holds the last boxes briefly instead of freezing on an old frame.
+                    if newest.payload.frame_id in self.vision or newest_waited or self.vision:
+                        selected = newest
+                    else:
+                        selected = next(
+                            (
+                                frame
+                                for frame in reversed(frames)
+                                if frame.payload.frame_id in self.vision
+                            ),
+                            None,
+                        )
+                vision = self.vision.get(selected.payload.frame_id) if selected else None
+                reasoning = self.reasoning.get(selected.payload.frame_id) if selected else None
+                # A newer picture can move before its own boxes exist. Keep the last
+                # real detection for one second and let the page label it as held.
+                if (
+                    selected is not None
+                    and vision is None
+                    and self.vision
+                    and self._last_vision_at is not None
+                    and (now - self._last_vision_at) * 1000 <= 1000
+                ):
+                    last_id = max(self.vision)
+                    vision = self.vision.get(last_id)
+                    reasoning = self.reasoning.get(last_id)
                 self._broadcast_sequence += 1
                 envelope = LiveEnvelope(
                     sequence=self._broadcast_sequence,
                     frame=selected.payload if selected else None,
-                    vision=self.vision.get(selected.payload.frame_id) if selected else None,
-                    reasoning=self.reasoning.get(selected.payload.frame_id) if selected else None,
+                    vision=vision,
+                    reasoning=reasoning,
                     telemetry=self._telemetry(now),
                 )
                 if self.subscribers:

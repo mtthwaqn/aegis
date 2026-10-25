@@ -16,6 +16,6 @@ if [ "$ready" -ne 1 ]; then
   echo "command center did not become ready" >&2
   exit 1
 fi
-python scripts/post_vision.py --base-url http://127.0.0.1:8000 --interval 0.2 &
+python scripts/post_vision.py --base-url http://127.0.0.1:8000 --interval 0.05 &
 vision=$!
 wait "$server" "$vision"

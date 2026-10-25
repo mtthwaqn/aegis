@@ -119,8 +119,9 @@ async def test_broadcast_is_correlated_and_backpressure_bounded(
         await asyncio.sleep(0.14)
         assert queue.qsize() == 1
         packet = LiveEnvelope.model_validate_json(queue.get_nowait())
-        assert packet.frame.frame_id == 1 and packet.vision is None
-        assert packet.reasoning is None
+        assert packet.frame.frame_id == 1
+        assert packet.vision.frame_id == 0
+        assert packet.reasoning.frame_id == 0
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

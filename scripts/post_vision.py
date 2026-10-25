@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 import cv2
 import numpy as np
 
+from src.ingestion.live_telemetry import TelemetryFeed, apply_live_fix
 from src.actions.decide import decide
 from src.perception.video_processing import analyze, to_vision_state
 from src.reasoning.georeferencing import CameraIntrinsics, CameraPose, project_pixel_to_water
@@ -22,6 +23,23 @@ from src.server.config import Settings
 from src.server.schemas import Coordinates, VisionState
 
 SYNTHETIC_ORIGIN = Coordinates(lat=14.6010, lon=120.9850)
+LIVE_NOTE = "Live Skydio demo telemetry. This is the feed GPS, not a surveyed victim location."
+_feed: TelemetryFeed | None = None
+
+
+def live_telemetry_url() -> str:
+    return os.environ.get("AEGIS_LIVE_TELEMETRY", "").strip()
+
+
+def telemetry_feed() -> TelemetryFeed | None:
+    global _feed
+    url = live_telemetry_url()
+    if not url:
+        return None
+    if _feed is None:
+        _feed = TelemetryFeed(url)
+        _feed.start()
+    return _feed
 
 
 def synthetic_geo_enabled() -> bool:
@@ -45,17 +63,31 @@ def with_synthetic_geo(state: VisionState) -> VisionState:
     return state.model_copy(update={"bounding_boxes": boxes, "drone_coordinates": SYNTHETIC_ORIGIN})
 
 
-def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dict[str, object]]:
+def submit_latest(
+    base_url: str,
+    api_token: str | None = None,
+    last_frame_id: int | None = None,
+) -> tuple[int, dict[str, object]]:
     """Publish one frame, including empty scenes; preserve acquisition identity.
 
     Geographic enrichment, when enabled, precedes this first immutable POST.
-    Without AEGIS_SYNTHETIC_GEO, detections leave geographic coordinates empty.
+    A live telemetry fix wins over the synthetic pose. Without either one,
+    detections leave geographic coordinates empty. The same frame is not
+    analyzed twice; the caller waits for the next acquisition.
     """
     token = Settings().api_token if api_token is None else api_token
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     latest = Request(f"{base_url.rstrip('/')}/api/frames/latest", headers=headers)
     with urlopen(latest, timeout=5) as response:
         frame_id = int(response.headers["X-Frame-ID"])
+        if frame_id == last_frame_id:
+            return 0, {
+                "http_status": 0,
+                "response": {},
+                "frame_id": frame_id,
+                "detections": [],
+                "skipped": True,
+            }
         timestamp = datetime.fromisoformat(response.headers["X-Frame-Timestamp"])
         width = int(response.headers["X-Frame-Width"])
         height = int(response.headers["X-Frame-Height"])
@@ -65,7 +97,11 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
         raise RuntimeError("Decoded frame does not match the acquisition headers")
     result = analyze(frame)
     state = to_vision_state(result, frame_id, timestamp)
-    if synthetic_geo_enabled():
+    feed = telemetry_feed()
+    fix = feed.latest() if feed is not None else None
+    if fix is not None:
+        state = apply_live_fix(state, fix)
+    elif synthetic_geo_enabled():
         state = with_synthetic_geo(state)
     request = Request(
         f"{base_url.rstrip('/')}/api/telemetry/vision",
@@ -82,8 +118,8 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
         with error:
             body = json.loads(error.read().decode())
             status = error.code
-    if status == 202 and synthetic_geo_enabled():
-        _post_decision(base_url, headers, state)
+    if status == 202 and (fix is not None or synthetic_geo_enabled()):
+        _post_decision(base_url, headers, state, live=fix is not None)
     return status, {
         "http_status": status,
         "response": body,
@@ -100,16 +136,17 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
     }
 
 
-def _post_decision(base_url: str, headers: dict[str, str], state: VisionState) -> None:
+def _post_decision(
+    base_url: str, headers: dict[str, str], state: VisionState, *, live: bool
+) -> None:
     decision = decide(state, threshold=Settings().low_confidence_threshold)
     if decision.action is None or decision.outcome not in {"dispatch_payload", "reroute_ground_rescue"}:
         return
+    note = LIVE_NOTE if live else "Synthetic camera pose for this clip, not a surveyed GPS fix."
     action = decision.action.model_copy(
         update={
-            "action_id": f"clip-frame-{state.frame_id}",
-            "reasoning_trace": (
-                f"{decision.reason} Synthetic camera pose for this clip, not a surveyed GPS fix."
-            ),
+            "action_id": f"{'live' if live else 'clip'}-frame-{state.frame_id}",
+            "reasoning_trace": f"{decision.reason} {note}",
         }
     )
     request = Request(
@@ -143,16 +180,22 @@ def main(argv: list[str] | None = None) -> int:
     token = Settings().api_token
     attempts = 0
     accepted = 0
+    last_frame_id: int | None = None
     try:
         while limit is None or attempts < limit:
             attempts += 1
             try:
-                status, summary = submit_latest(args.base_url, token)
-                print(json.dumps(summary), flush=True)
-                if status == 202:
-                    accepted += 1
-                elif status != 409:
-                    return 1
+                status, summary = submit_latest(args.base_url, token, last_frame_id)
+                if isinstance(summary.get("frame_id"), int):
+                    last_frame_id = int(summary["frame_id"])
+                if summary.get("skipped"):
+                    pass
+                else:
+                    print(json.dumps(summary), flush=True)
+                    if status == 202:
+                        accepted += 1
+                    elif status != 409:
+                        return 1
             except HTTPError as error:
                 with error:
                     print(f"Frame acquisition rejected (HTTP {error.code})", file=sys.stderr)

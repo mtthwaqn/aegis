@@ -119,7 +119,7 @@ For the trained detector on one held-out clip, set `AEGIS_DETECTOR=trained` and 
 ## Limitations
 
 - Person recall on DJI_0804 is 0.194 at IoU 0.50. The model is not a complete person detector for small or distant swimmers.
-- The AWS page shows the classical detector on one real held-out clip. It does not show the trained weights. The clip has no GPS. The service attaches a synthetic camera pose at 14.601 N, 120.985 E so a boat box can reroute. That pose is not a surveyed rescue location. The live confidence threshold on that task is 0.50.
-- There is no live drone stream. Kinesis Video could not be created in this account.
+- The AWS page shows the classical detector on the public Skydio demo stream. It does not show the trained weights. GPS comes from that feed's telemetry websocket. The drone fix is real for the demo aircraft, and a box uses the camera footprint when one is sent. It is not a surveyed victim location, and it is not frame-accurate. The live confidence threshold on that task is 0.50.
+- Kinesis Video could not be created in this account. The live feed is read directly from Skydio's public demo.
 - There is no measured Graviton or COOL result, and there is no measured compute cost.
-- The synthetic pose on the AWS clip, and the coordinates on the mock scene, are not a surveyed rescue location. `0,0` is still unavailable.
+- Coordinates on the mock scene are not a surveyed rescue location. The Skydio demo GPS is the aircraft fix from that public feed. `0,0` is still unavailable.

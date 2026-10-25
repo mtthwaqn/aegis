@@ -10,6 +10,44 @@ from src.perception.segmentation import Component, scale_of
 from src.perception.target_detection import MAX_PERSON_AREA, MIN_CONTRAST, Detection
 
 
+def recover_vessels(
+    frame: NDArray[np.uint8],
+    score: NDArray[np.uint8],
+    regions: list[Component],
+) -> list[Component]:
+    """Split a scene-sized blob and keep the bright vessel pieces.
+
+    Rocks, foam, and a boat often merge into one component. That component is
+    larger than a hazard, so the boat used to disappear with it. Dark pieces
+    of the same blob stay out, so the rock pile is not boxed as a fleet of hazards.
+    """
+    from src.perception.segmentation import components
+
+    scale = scale_of(frame.shape[1])
+    area_scale = scale * scale
+    limit = 90000 * area_scale
+    kept: list[Component] = []
+    for region in regions:
+        if region.area <= limit:
+            kept.append(region)
+            continue
+        patch = score[region.y : region.y + region.h, region.x : region.x + region.w]
+        _, binary = cv2.threshold(patch, 40, 255, cv2.THRESH_BINARY)
+        for piece in components(binary, patch):
+            if piece.area > limit:
+                continue
+            y = region.y + piece.y
+            x = region.x + piece.x
+            gray = cv2.cvtColor(
+                frame[y : y + piece.h, x : x + piece.w],
+                cv2.COLOR_BGR2GRAY,
+            )
+            if gray.size == 0 or float(gray.mean()) < 112:
+                continue
+            kept.append(Component(x, y, piece.w, piece.h, piece.area, piece.contrast))
+    return kept
+
+
 def detect_hazards(
     frame: NDArray[np.uint8],
     regions: list[Component],
@@ -65,8 +103,18 @@ def _classify(
     if warm and region.area <= (MAX_PERSON_AREA * area_scale):
         return ("debris", "DEBRIS", confidence)
     if (MAX_PERSON_AREA * area_scale) < region.area <= (90000 * area_scale):
+        if _cloud(frame, region):
+            return None
         return ("hazard", "HAZARD", confidence)
     return None
+
+
+def _cloud(frame: NDArray[np.uint8], region: Component) -> bool:
+    patch = frame[region.y : region.y + region.h, region.x : region.x + region.w]
+    if patch.size == 0:
+        return False
+    hsv = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+    return float(hsv[:, :, 1].mean()) < 35 and float(hsv[:, :, 2].mean()) > 170
 
 
 def overlaps(region: Component, detections: list[Detection]) -> bool:

@@ -26,7 +26,10 @@ def test_runtime_image_matches_the_sydney_service() -> None:
     }
     assert environment["AEGIS_DEPLOYMENT_VERIFIED"] == "false"
     assert environment["AEGIS_DETECTOR"] == "classical"
-    assert environment["AEGIS_VIDEO_SOURCE"] == "/app/media/clip.mp4"
+    assert environment["AEGIS_VIDEO_SOURCE"] == "rtsps://stream.skydio.com/demo/Skydio/color"
+    assert environment["AEGIS_LIVE_TELEMETRY"] == "wss://stream.skydio-dev.com/data/demo"
+    assert environment["AEGIS_SYNTHETIC_GEO"] == "false"
+    assert "token" not in environment["AEGIS_LIVE_TELEMETRY"]
     assert environment["AEGIS_MOCK_ACTIONS"] == "false"
     assert "Graviton" not in environment["AEGIS_COMPUTE_INSTANCE"]
     assert "do not" in notes.lower()

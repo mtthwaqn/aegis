@@ -191,7 +191,8 @@ class LiveEnvelope(Contract):
             if (
                 self.frame is None
                 or self.vision is None
-                or not (self.frame.frame_id == self.vision.frame_id == self.reasoning.frame_id)
+                or self.vision.frame_id != self.reasoning.frame_id
+                or self.vision.frame_id > self.frame.frame_id
             ):
                 raise ValueError("Reasoning requires the matching video frame and VisionState")
         return self
