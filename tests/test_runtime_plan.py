@@ -10,22 +10,25 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "infra" / "runtime"
 
 
-def test_runtime_image_is_not_a_deployment() -> None:
+def test_runtime_image_matches_the_sydney_service() -> None:
     dockerfile = (RUNTIME / "Dockerfile").read_text(encoding="utf-8")
     task = json.loads((RUNTIME / "ecs-task-definition.json").read_text(encoding="utf-8"))
     notes = (RUNTIME / "README.md").read_text(encoding="utf-8")
     assert "AEGIS_DETECTOR=classical" in dockerfile
     assert "AEGIS_DEPLOYMENT_VERIFIED=false" in dockerfile
-    assert "amazonaws.com" not in dockerfile
     assert "AKIA" not in dockerfile
-    assert task["containerDefinitions"][0]["image"] == "aegis-command-center:local"
-    assert task["runtimePlatform"]["cpuArchitecture"] == "ARM64"
+    assert task["runtimePlatform"]["cpuArchitecture"] == "X86_64"
+    assert task["containerDefinitions"][0]["image"].endswith(
+        "dkr.ecr.ap-southeast-2.amazonaws.com/aegis-command-center:latest"
+    )
     environment = {
         item["name"]: item["value"] for item in task["containerDefinitions"][0]["environment"]
     }
     assert environment["AEGIS_DEPLOYMENT_VERIFIED"] == "false"
     assert environment["AEGIS_DETECTOR"] == "classical"
-    assert environment["AEGIS_VIDEO_SOURCE"] == "mock"
+    assert environment["AEGIS_VIDEO_SOURCE"] == "/app/media/clip.mp4"
+    assert environment["AEGIS_MOCK_ACTIONS"] == "false"
+    assert "Graviton" not in environment["AEGIS_COMPUTE_INSTANCE"]
     assert "do not" in notes.lower()
     blob = dockerfile + json.dumps(task) + notes
     for secret in ("AWS_SECRET_ACCESS_KEY", "AKIA", "aws_access_key_id"):

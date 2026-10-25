@@ -1,14 +1,12 @@
-# Runtime image plan
+# Runtime image
 
-This directory defines a local Docker image and an ECS task shape. It does not
-deploy the app. Do not `docker push` to ECR, and do not call
-`ecs:RegisterTaskDefinition`.
+This image is what the Sydney Fargate service runs. It is X86_64, not Graviton,
+and it does not measure COOL. `AEGIS_DEPLOYMENT_VERIFIED` stays `false`.
 
-The live detector in the image is classical. `AEGIS_DEPLOYMENT_VERIFIED` stays
-`false`. The video source stays `mock` until a real publisher is sending H.264
-to the Kinesis stream planned in [`../aws/README.md`](../aws/README.md). That
-stream is a separate plan and is not created by these files.
+The container plays one held-out clip, `DJI_0804_0001_30m_1.mp4`, and
+`scripts/post_vision.py` runs the classical OpenCV detector on those frames.
+Mock actions stay off, so the trace comes from the detector. The clip has no
+GPS, so the decision escalates. Copy that clip to `media/clip.mp4` before
+building. The clip is not committed.
 
-The task definition names ARM64 because the intended later host is Graviton.
-This file does not measure Graviton or COOL, and it has no execution role, no
-account id, and no image URI in ECR.
+Do not label this task as Graviton or COOL.

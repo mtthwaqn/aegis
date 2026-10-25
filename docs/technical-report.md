@@ -11,9 +11,9 @@ Two deployments are distinct.
 | Path | Detector | Video | Where it runs |
 | --- | --- | --- | --- |
 | Local trained evaluation | YOLO11n person/boat, confidence 0.45 | Held-out MOBDrone clips and a local DJI file | This workstation, NVIDIA GeForce RTX 2050 |
-| AWS command center | Classical OpenCV detector | Built-in mock scene | ECS Fargate, X86_64, 1 vCPU, 2 GB, `ap-southeast-2` |
+| AWS command center | Classical OpenCV detector | One held-out DJI clip inside the image | ECS Fargate, X86_64, 1 vCPU, 2 GB, `ap-southeast-2` |
 
-The cloud image does not contain `best.pt`. `AEGIS_DETECTOR` stays `classical` there, and `AEGIS_VIDEO_SOURCE` stays `mock`. On 25 October 2026 the task served `http://16.176.195.66:8000/command-center`. The page reported LIVE / STREAMING, about 29.7 FPS, and about 9 ms p95 on that synthetic feed. That address belongs to the task network interface and changes when the task is replaced. TCP 8000 is limited to the operator address used at deploy time. The HUD labels the host as Fargate, not Graviton, and the cost field stays unconfigured.
+The cloud image does not contain `best.pt`. `AEGIS_DETECTOR` stays `classical` there. `AEGIS_VIDEO_SOURCE` is one held-out clip, `DJI_0804_0001_30m_1.mp4`, and mock actions are off. The detector in the container emits hazard boxes from that clip, and the missing GPS makes the trace escalate. The public address belongs to the task network interface and changes when the task is replaced. TCP 8000 is limited to the operator address used at deploy time. The HUD labels the host as Fargate, not Graviton, and the cost field stays unconfigured.
 
 `AEGIS_DEPLOYMENT_VERIFIED` remains false. The 124 FPS / 12.4 ms / $0.0031 ribbon in the HUD is an unverified reference printed by the page, not a measurement from this deployment.
 
@@ -119,7 +119,7 @@ For the trained detector on one held-out clip, set `AEGIS_DETECTOR=trained` and 
 ## Limitations
 
 - Person recall on DJI_0804 is 0.194 at IoU 0.50. The model is not a complete person detector for small or distant swimmers.
-- The AWS page shows the classical detector on a synthetic scene. It does not show the trained weights.
+- The AWS page shows the classical detector on one real held-out clip. It does not show the trained weights. The trace escalates because the clip has no GPS.
 - There is no live drone stream. Kinesis Video could not be created in this account.
 - There is no measured Graviton or COOL result, and there is no measured compute cost.
 - Coordinates on the synthetic feed are part of the mock scene. They are not a surveyed rescue location.

@@ -3,15 +3,16 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "runtimePlatform": {
-    "cpuArchitecture": "ARM64",
+    "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
   "cpu": "1024",
   "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::390068747483:role/aegis-ecs-execution",
   "containerDefinitions": [
     {
       "name": "command-center",
-      "image": "aegis-command-center:local",
+      "image": "390068747483.dkr.ecr.ap-southeast-2.amazonaws.com/aegis-command-center:latest",
       "essential": true,
       "portMappings": [
         {
@@ -21,10 +22,20 @@
       ],
       "environment": [
         {"name": "AEGIS_DETECTOR", "value": "classical"},
-        {"name": "AEGIS_VIDEO_SOURCE", "value": "mock"},
+        {"name": "AEGIS_VIDEO_SOURCE", "value": "/app/media/clip.mp4"},
         {"name": "AEGIS_DEPLOYMENT_VERIFIED", "value": "false"},
+        {"name": "AEGIS_MOCK_ACTIONS", "value": "false"},
+        {"name": "AEGIS_COMPUTE_INSTANCE", "value": "Fargate X86_64, 1 vCPU, 2 GB, ap-southeast-2"},
         {"name": "AEGIS_KINESIS_REGION", "value": "ap-southeast-2"}
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aegis-command-center",
+          "awslogs-region": "ap-southeast-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ]
 }
