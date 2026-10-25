@@ -1,4 +1,4 @@
-# Aegis Command Center — Member 1
+# Aegis Command Center
 
 Python 3.11+ contracts, video ingestion, an asynchronous FastAPI integration bus,
 and a responsive Dark Ops operator dashboard for maritime / flood search and rescue.
