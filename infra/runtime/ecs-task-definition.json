@@ -23,6 +23,11 @@
       "environment": [
         {"name": "AEGIS_DETECTOR", "value": "classical"},
         {"name": "AEGIS_VIDEO_SOURCE", "value": "/app/media/clip.mp4"},
+        {"name": "AEGIS_INGESTION_FPS", "value": "1"},
+        {"name": "AEGIS_VISION_WAIT_MS", "value": "2000"},
+        {"name": "AEGIS_BROADCAST_HZ", "value": "5"},
+        {"name": "AEGIS_SYNTHETIC_GEO", "value": "true"},
+        {"name": "AEGIS_LOW_CONFIDENCE_THRESHOLD", "value": "0.50"},
         {"name": "AEGIS_DEPLOYMENT_VERIFIED", "value": "false"},
         {"name": "AEGIS_MOCK_ACTIONS", "value": "false"},
         {"name": "AEGIS_COMPUTE_INSTANCE", "value": "Fargate X86_64, 1 vCPU, 2 GB, ap-southeast-2"},

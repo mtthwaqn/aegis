@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from datetime import datetime
@@ -14,15 +15,41 @@ from urllib.request import Request, urlopen
 import cv2
 import numpy as np
 
+from src.actions.decide import decide
 from src.perception.video_processing import analyze, to_vision_state
+from src.reasoning.georeferencing import CameraIntrinsics, CameraPose, project_pixel_to_water
 from src.server.config import Settings
+from src.server.schemas import Coordinates, VisionState
+
+SYNTHETIC_ORIGIN = Coordinates(lat=14.6010, lon=120.9850)
+
+
+def synthetic_geo_enabled() -> bool:
+    return os.environ.get("AEGIS_SYNTHETIC_GEO", "").strip().lower() in {"1", "true", "yes"}
+
+
+def with_synthetic_geo(state: VisionState) -> VisionState:
+    """Place boxes on a demo camera pose. This is not a surveyed fix for the clip."""
+    camera = CameraIntrinsics.from_horizontal_fov(state.frame_width, state.frame_height, 66)
+    pose = CameraPose(
+        coordinates=SYNTHETIC_ORIGIN,
+        height_above_water_m=30.0,
+        heading_clockwise_from_north_deg=180.0,
+        pitch_down_from_horizon_deg=55.0,
+        roll_clockwise_deg=0.0,
+    )
+    boxes = []
+    for box in state.bounding_boxes:
+        geo = project_pixel_to_water(box.centroid[0], box.centroid[1], camera, pose)
+        boxes.append(box.model_copy(update={"geo_coordinates": geo or SYNTHETIC_ORIGIN}))
+    return state.model_copy(update={"bounding_boxes": boxes, "drone_coordinates": SYNTHETIC_ORIGIN})
 
 
 def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dict[str, object]]:
     """Publish one frame, including empty scenes; preserve acquisition identity.
 
-    Geographic enrichment, when available, must precede this first immutable POST.
-    Detections leave geographic coordinates empty.
+    Geographic enrichment, when enabled, precedes this first immutable POST.
+    Without AEGIS_SYNTHETIC_GEO, detections leave geographic coordinates empty.
     """
     token = Settings().api_token if api_token is None else api_token
     headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -38,6 +65,8 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
         raise RuntimeError("Decoded frame does not match the acquisition headers")
     result = analyze(frame)
     state = to_vision_state(result, frame_id, timestamp)
+    if synthetic_geo_enabled():
+        state = with_synthetic_geo(state)
     request = Request(
         f"{base_url.rstrip('/')}/api/telemetry/vision",
         data=state.model_dump_json().encode(),
@@ -53,6 +82,8 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
         with error:
             body = json.loads(error.read().decode())
             status = error.code
+    if status == 202 and synthetic_geo_enabled():
+        _post_decision(base_url, headers, state)
     return status, {
         "http_status": status,
         "response": body,
@@ -67,6 +98,31 @@ def submit_latest(base_url: str, api_token: str | None = None) -> tuple[int, dic
             for detection in result.detections
         ],
     }
+
+
+def _post_decision(base_url: str, headers: dict[str, str], state: VisionState) -> None:
+    decision = decide(state, threshold=Settings().low_confidence_threshold)
+    if decision.action is None or decision.outcome not in {"dispatch_payload", "reroute_ground_rescue"}:
+        return
+    action = decision.action.model_copy(
+        update={
+            "action_id": f"clip-frame-{state.frame_id}",
+            "reasoning_trace": (
+                f"{decision.reason} Synthetic camera pose for this clip, not a surveyed GPS fix."
+            ),
+        }
+    )
+    request = Request(
+        f"{base_url.rstrip('/')}/api/agent/action",
+        data=action.model_dump_json().encode(),
+        headers=headers | {"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=5):
+            return
+    except HTTPError:
+        return
 
 
 def main(argv: list[str] | None = None) -> int:

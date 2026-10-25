@@ -17,10 +17,15 @@ RUN pip install --no-cache-dir -r requirements.lock.txt \
 
 COPY infra/runtime/start.sh /app/start.sh
 COPY infra/runtime/media/clip.mp4 /app/media/clip.mp4
-RUN chmod +x /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV AEGIS_DETECTOR=classical \
     AEGIS_VIDEO_SOURCE=/app/media/clip.mp4 \
+    AEGIS_INGESTION_FPS=1 \
+    AEGIS_VISION_WAIT_MS=2000 \
+    AEGIS_BROADCAST_HZ=5 \
+    AEGIS_SYNTHETIC_GEO=true \
+    AEGIS_LOW_CONFIDENCE_THRESHOLD=0.50 \
     AEGIS_DEPLOYMENT_VERIFIED=false \
     AEGIS_MOCK_ACTIONS=false \
     AEGIS_COMPUTE_INSTANCE="Fargate X86_64, 1 vCPU, 2 GB, ap-southeast-2" \

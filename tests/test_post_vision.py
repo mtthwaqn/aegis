@@ -9,6 +9,8 @@ import numpy as np
 import pytest
 
 from scripts import post_vision
+from src.actions.decide import decide
+from src.server.schemas import BoundingBox, Coordinates
 
 
 def test_publisher_preserves_identity_and_authenticates_both_requests(
@@ -58,6 +60,34 @@ def test_publisher_recovers_from_connection_drop(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(post_vision, "submit_latest", publish)
     monkeypatch.setattr(post_vision.time, "sleep", lambda _: None)
     assert post_vision.main(["--attempts", "2"]) == 0
+
+
+def test_synthetic_geo_is_a_labeled_demo_pose() -> None:
+    state = post_vision.VisionState(
+        frame_id=7,
+        timestamp=datetime.now(UTC),
+        latency_ms=20.0,
+        bounding_boxes=[
+            BoundingBox(
+                coordinates=[600.0, 300.0, 80.0, 40.0],
+                centroid=[640.0, 320.0],
+                confidence=0.53,
+                classification="hazard",
+            )
+        ],
+        is_occluded=False,
+        frame_width=1280,
+        frame_height=720,
+    )
+    placed = post_vision.with_synthetic_geo(state)
+    geo = placed.bounding_boxes[0].geo_coordinates
+    assert geo is not None
+    assert (geo.lat, geo.lon) != (0.0, 0.0)
+    assert placed.drone_coordinates == post_vision.SYNTHETIC_ORIGIN
+    decision = decide(placed, threshold=0.50)
+    assert decision.outcome == "reroute_ground_rescue"
+    assert decision.action is not None
+    assert decision.action.target_coordinates != Coordinates(lat=0.0, lon=0.0)
 
 
 def test_publisher_exits_on_auth_failure(monkeypatch: pytest.MonkeyPatch) -> None:

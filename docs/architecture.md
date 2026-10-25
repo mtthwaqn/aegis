@@ -112,7 +112,7 @@ flowchart LR
 
 ## 4. Where the two demos run
 
-These are separate processes. The local page plays a held-out DJI clip through the trained model. The AWS page plays the same kind of clip through the classical OpenCV detector on Fargate in `ap-southeast-2`. Neither clip has GPS, so both traces escalate. Mock actions are off. TCP 8000 is open only to the operator address. The cloud image does not contain the trained weights.
+These are separate processes. The local page plays a held-out DJI clip through the trained model and leaves coordinates empty, so that trace escalates. The AWS page plays one DJI clip through the classical OpenCV detector on Fargate in `ap-southeast-2`. That clip also has no GPS. The cloud process adds a synthetic camera pose, labeled as such, so a boat box can reroute. Mock actions are off. TCP 8000 is open only to the operator address. The cloud image does not contain the trained weights.
 
 ```mermaid
 flowchart LR
@@ -123,12 +123,12 @@ flowchart LR
   end
 
   subgraph aws [AWS ap-southeast-2]
-    image[Container<br/>classical detector<br/>one DJI clip]
+    image[Container<br/>classical detector<br/>synthetic pose 14.601 N 120.985 E]
     ecr[ECR aegis-command-center]
     cluster[ECS cluster aegis]
     fargate[Fargate X86_64<br/>1 vCPU, 2 GB]
     guard[TCP 8000<br/>operator address only]
-    site[Public command center<br/>real clip, escalate]
+    site[Public command center<br/>real clip, synthetic pose]
   end
 
   dji --> post --> localHud
