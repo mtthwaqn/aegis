@@ -5,6 +5,9 @@ and a responsive Dark Ops operator dashboard for maritime / flood search and res
 Members 2–5 supply perception, georeferencing, physical MCP tools, AWS deployment,
 and COOL benchmarking. No hardware commands execute in this repository.
 
+The measured write-up is [docs/technical-report.md](docs/technical-report.md).
+The system diagram is [docs/architecture.md](docs/architecture.md).
+
 PR #3's Member 3 reasoning is now connected to the live Command Center. Each
 accepted `VisionState` passes through `to_reasoning_payload()` and a validated
 `ReasoningState`, then travels in `/ws/live` alongside its matching frame. The

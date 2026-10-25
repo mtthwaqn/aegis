@@ -177,7 +177,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.websocket("/ws/live")
     async def live(websocket: WebSocket) -> None:
         origin = websocket.headers.get("origin")
-        if origin is not None and origin not in config.allowed_origins:
+        host = websocket.headers.get("host")
+        same_origin = bool(host) and origin in {f"http://{host}", f"https://{host}"}
+        if origin is not None and origin not in config.allowed_origins and not same_origin:
             await websocket.close(code=1008)
             return
         await websocket.accept()
